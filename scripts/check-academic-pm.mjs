@@ -253,9 +253,10 @@ function directChildSummary(root, dirRel, indexName) {
 }
 
 function textMentionsIndexItem(text, item) {
-  // Check for wiki link syntax: [[item]] or [[item|label]]
-  const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const wikiLinkPattern = new RegExp(`\\[\\[${escaped}(?:\\|[^\\]]+)?\\]\\]`);
+  // Check for wiki link syntax: [[item]], [[item|label]], or [[folder/item|label]]
+  const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$\u0026');
+  // Match: [[item]], [[item|label]], or [[path/item|label]]
+  const wikiLinkPattern = new RegExp(`\\[\\[(?:[^\\]]*/)?${escaped}(?:\\|[^\\]]+)?\\]\\]`);
   return wikiLinkPattern.test(text);
 }
 
