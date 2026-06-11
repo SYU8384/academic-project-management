@@ -1,6 +1,6 @@
 ---
 name: academic-project-management
-description: "Keeps academic research state in sync: literature, evidence, analysis, writing, meetings, planning, history, and archive. Use when the user asks to setup, initialize, normalize, register, log, update, audit, validate, repair, or organize an academic project; record advisor feedback, data checks, analysis findings, writing progress, revisions, or research decisions; declare a manuscript home and wire its AGENTS.md to the PM folder."
+description: "Keeps academic research state in sync: literature, evidence, analysis, writing, meetings, planning, history, and archive. Use when the user asks to set up, initialize, normalize, register, log, update, audit, validate, repair, or organize an academic project; record advisor feedback, data checks, analysis findings, writing progress, revisions, or research decisions; declare a manuscript home and wire its AGENTS.md to the PM folder."
 ---
 
 # Academic Project Management
@@ -9,13 +9,64 @@ Use this skill for durable academic research memory and project coordination. Op
 
 For setup details, schema rules, validation, repair, and templates, read [REFERENCE.md](REFERENCE.md). For end-to-end recipes, see [EXAMPLES.md](EXAMPLES.md).
 
+## Trigger Words (User Intents)
+
+Say any of these phrases and the agent will handle the workflow interactively:
+
+| User says | Intent | What the agent does |
+|---|---|---|
+| **"set up this project"**, **"setup this project"**, **"bootstrap my paper"**, **"initialize the PM folder"** | Guided setup | Asks for project name, PM folder path, research phase, and optional manuscript home. Shows summary, asks confirmation, then bootstraps. |
+| **"log this"**, **"record analysis"**, **"I just finished..."**, **"I completed..."** | Log work | Asks for event description and affected notes. Creates history entry and updates CURRENT_STATUS.md. |
+| **"verify setup"**, **"check PM"**, **"audit"**, **"validate setup"** | Validate | Runs validator and reports findings (PM folder + manuscript home + AGENTS.md). |
+| **"repair PM"**, **"fix indexes"**, **"rebuild folder notes"** | Repair drift | Runs repair action, shows what will be fixed, asks confirmation. |
+| **"set up OpenClaw PM"**, **"OpenClaw academic PM"** | OpenClaw setup | Displays the copy-paste prompt for OpenClaw workspace configuration. |
+
+The agent handles the details — you don't need to remember script paths or flags.
+
 ## Workflows
 
-1. **Set up or normalize a project folder.** Inspect the folder first. Preserve existing notes, create missing root files and lane indexes, copy the project root navigation style, register in `projects.json`. Use `bootstrap-academic-pm.mjs`.
-2. **Log completed work.** Update current-state notes first (`RESEARCH.md`, `CURRENT_STATUS.md`, lane notes), update folder-note indexes if notes moved, then add a concise history entry. History records *that* work happened; evidence, analysis, writing, and meeting details belong in their durable lanes.
-3. **Record an advisor meeting.** Put the note in `meetings/`, extract action items into `CURRENT_STATUS.md`, update `planning/`, `analysis/`, or `writing/` if feedback changes active work. Keep raw advisor feedback verbatim.
-4. **Track data or reproducibility work.** Source registries, dataset provenance, audit reports, verification reports, and reproducibility decisions go in `evidence/` or `analysis/`. Keep raw sensitive data out of the PM folder unless `README.md` explicitly permits it.
-5. **Declare the manuscript home and wire `AGENTS.md`.** When the project has a manuscript + analysis-code folder, declare it via `--manuscript-home` + `--manuscript-kind` + `--manuscript-access`. The folder is whatever contains the executable artifacts (manuscript source, R/Python scripts, figures, configs). The bootstrap script appends or refreshes a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at this PM folder.
+### 1. Set up a new project (interactive)
+
+When you say **"set up this project"**, the agent will ask:
+
+1. **Project name** — e.g., "CareerPathsPaper"
+2. **PM folder path** — where to create the project folder (default: current directory or `~/vault/<name>`)
+3. **Research phase** — choose from:
+   - `idea` — Initial concept, no literature review yet
+   - `literature` — Active literature review and related-work synthesis
+   - `design` — Research design, hypotheses, methods planned
+   - `data` — Data collection, cleaning, measurement definition
+   - `analysis` — Active analysis, results emerging
+   - `analysis-writing` — Parallel analysis and drafting
+   - `writing` — Focused manuscript writing
+   - `revision` — Addressing reviewer comments
+   - `submission` — Preparing submission materials
+   - `published` — Paper published, maintenance mode
+4. **Manuscript home** (optional) — path to your LaTeX/code repo
+5. **Confirmation** — agent shows summary, you approve before anything is created
+
+The agent then runs the bootstrap script and reports what was created.
+
+### 2. Log completed work
+
+When you say **"log this"** or **"I just finished the regression analysis"**, the agent will:
+
+1. Ask which notes were affected (e.g., `analysis/regression.md`)
+2. Create a dated history entry in `history/`
+3. Update `CURRENT_STATUS.md` Recent Progress section
+4. Update lane indexes to link back to the history entry
+
+### 3. Record an advisor meeting
+
+Put the note in `meetings/`, extract action items into `CURRENT_STATUS.md`, update `planning/`, `analysis/`, or `writing/` if feedback changes active work. Keep raw advisor feedback verbatim.
+
+### 4. Track data or reproducibility work
+
+Source registries, dataset provenance, audit reports, verification reports, and reproducibility decisions go in `evidence/` or `analysis/`. Keep raw sensitive data out of the PM folder unless `README.md` explicitly permits it.
+
+### 5. Declare the manuscript home and wire AGENTS.md
+
+When the project has a manuscript + analysis-code folder, declare it during setup or re-bootstrap with the manuscript home path. The bootstrap script appends or refreshes a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at this PM folder.
 
 ## Default Paper Pipeline
 
@@ -65,12 +116,14 @@ After bootstrap, all 12 created files (3 root files + `<Project>.md` + 8 lane no
 One command validates a registered project's PM folder + manuscript home + AGENTS.md:
 
 ```bash
-node <skill_dir>/scripts/check-academic-pm.mjs --project <ProjectName> --config <skill_dir>/projects.json
+node <skill_dir>/scripts/check-academic-pm.mjs --project <ProjectName>
 ```
 
 For a folder you've never registered, use `--path <folder>` instead. Add `--strict` to fail on warnings; add `--json` for machine-readable output.
 
 ## Commands
+
+These are the underlying commands the agent runs when you use trigger words. You can also run them directly if you prefer:
 
 Bootstrap a project (idempotent — re-running refreshes `projects.json` and the `AGENTS.md` section without touching existing notes):
 
@@ -111,6 +164,19 @@ node <skill_dir>/scripts/bootstrap-academic-pm.mjs \
   --note <relative-path> [--note <relative-path> ...] \
   [--type log|decision|review|audit]
 ```
+
+## OpenClaw Integration
+
+For OpenClaw PM agents, use the dedicated instruction:
+
+```
+Read and follow this instruction:
+https://raw.githubusercontent.com/SYU8384/academic-project-management/main/openclaw-instruction.md
+```
+
+The instruction installs or updates the skill, verifies `projects.json`, configures the OpenClaw workspace `AGENTS.md`, audits registered PM folders and manuscript home `AGENTS.md` files, and asks approval before edits.
+
+**OpenClaw's unique role:** As the PM agent, OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript repo's `AGENTS.md`** (telling coding agents where research state lives). Users can brainstorm ideas, track literature, and manage meetings through OpenClaw, while coding agents focus on the manuscript repo.
 
 ## Final Response
 

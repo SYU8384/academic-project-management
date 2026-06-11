@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -21,6 +22,103 @@ const REQUIRED_FOLDERS = [
 
 const OPTIONAL_FOLDERS = ["docs", "submissions", "admin", "ethics", "collaboration"];
 
+const PHASES = [
+  { value: "idea", desc: "Initial concept, no literature review yet" },
+  { value: "literature", desc: "Active literature review and related-work synthesis" },
+  { value: "design", desc: "Research design, hypotheses, methods planned" },
+  { value: "data", desc: "Data collection, cleaning, measurement definition" },
+  { value: "analysis", desc: "Active analysis, results emerging" },
+  { value: "analysis-writing", desc: "Parallel analysis and drafting" },
+  { value: "writing", desc: "Focused manuscript writing" },
+  { value: "revision", desc: "Addressing reviewer comments, revising claims" },
+  { value: "submission", desc: "Preparing submission materials" },
+  { value: "published", desc: "Paper published, project maintenance mode" },
+];
+
+function prompt(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+async function interactiveBootstrap(out) {
+  console.log("\n📚 Academic Project Management — Interactive Setup\n");
+
+  if (!out.project) {
+    out.project = await prompt("Project name (e.g., CareerPathsPaper): ");
+    if (!out.project) throw new Error("Project name is required");
+  }
+
+  if (!out.pmFolder) {
+    const defaultPath = path.join(process.cwd(), out.project);
+    const answer = await prompt(`PM folder path [${defaultPath}]: `);
+    out.pmFolder = answer || defaultPath;
+  }
+
+  if (!out.phase) {
+    console.log("\nResearch phases:");
+    PHASES.forEach((p, i) => console.log(`  ${i + 1}) ${p.value.padEnd(18)} — ${p.desc}`));
+    const answer = await prompt("\nSelect phase (number or name): ");
+    const num = parseInt(answer, 10);
+    if (!isNaN(num) && num >= 1 && num <= PHASES.length) {
+      out.phase = PHASES[num - 1].value;
+    } else {
+      const found = PHASES.find((p) => p.value === answer);
+      if (found) out.phase = found.value;
+      else out.phase = answer;
+    }
+    if (!out.phase) throw new Error("Phase is required");
+  }
+
+  if (!out.notes) {
+    const defaultNotes = `${out.project} academic research project.`;
+    const answer = await prompt(`Project description [${defaultNotes}]: `);
+    out.notes = answer || defaultNotes;
+  }
+
+  const hasManuscript = await prompt("\nDoes this project have a manuscript home (LaTeX/code repo)? [y/N]: ");
+  if (hasManuscript.toLowerCase() === "y" || hasManuscript.toLowerCase() === "yes") {
+    const homePath = await prompt("Manuscript home path: ");
+    if (homePath) {
+      out.manuscriptHome = homePath;
+      // Auto-detect if it's a git repo
+      const gitDir = path.join(homePath, ".git");
+      if (fs.existsSync(gitDir)) {
+        out.manuscriptKind = "git-repo";
+        console.log(`   Detected git repository`);
+      } else {
+        const kind = await prompt("  Type: [1] git-repo [2] local-folder [1]: ");
+        out.manuscriptKind = kind === "2" ? "local-folder" : "git-repo";
+      }
+      const access = await prompt("  Access level [1] authoritative [2] read-only [1]: ");
+      out.manuscriptAccess = access === "2" ? "read-only" : "authoritative";
+    }
+  }
+
+  console.log("\n📋 Setup Summary:");
+  console.log(`  Project:         ${out.project}`);
+  console.log(`  PM folder:       ${out.pmFolder}`);
+  console.log(`  Phase:           ${out.phase}`);
+  console.log(`  Description:     ${out.notes}`);
+  if (out.manuscriptHome) {
+    console.log(`  Manuscript home: ${out.manuscriptHome}`);
+    console.log(`  Manuscript kind: ${out.manuscriptKind}`);
+    console.log(`  Manuscript access: ${out.manuscriptAccess}`);
+  }
+
+  if (!out.yes) {
+    const confirm = await prompt("\nProceed? [y/N]: ");
+    if (confirm.toLowerCase() !== "y" && confirm.toLowerCase() !== "yes") {
+      console.log("Setup canceled.");
+      process.exit(0);
+    }
+  }
+}
+
 function usage() {
   console.error(`Usage:
   node scripts/bootstrap-academic-pm.mjs \\
@@ -38,7 +136,7 @@ function usage() {
     [--event "<one-line summary>"] \\
     [--type log|decision|review|audit] \\
     [--note <relative-path>] [--note <relative-path> ...] \\
-    [--dry-run]
+    [--dry-run] [--yes]
 
 Actions:
   bootstrap (default) — scaffold a fresh PM folder or refresh projects.json
@@ -82,6 +180,7 @@ function parseArgs(argv) {
     writeAgentsMd: true,
     date: localDate(),
     dryRun: false,
+    yes: false,
     logEvent: null,
     logType: "log",
     logNotes: [],
@@ -100,6 +199,10 @@ function parseArgs(argv) {
     if (arg === "--no-manuscript-home") {
       out.manuscriptHome = "";
       out.manuscriptKind = "null";
+      continue;
+    }
+    if (arg === "--yes") {
+      out.yes = true;
       continue;
     }
     const value = argv[i + 1];
@@ -132,12 +235,22 @@ function parseArgs(argv) {
   // Use default config path if not provided.
   if (!out.config) out.config = DEFAULT_CONFIG_PATH;
 
-  // Required args differ by action.
-  for (const key of ["project", "pmFolder"]) {
-    if (!out[key]) throw new Error(`Missing required --${key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`);
-  }
-  if (out.action === "bootstrap" && !out.phase) {
-    throw new Error(`Missing required --phase (required for --action bootstrap)`);
+  // Interactive mode: if bootstrap args are missing, prompt for them.
+  const needsInteractive = out.action === "bootstrap" && (!out.project || !out.pmFolder || !out.phase);
+  if (needsInteractive) {
+    // Interactive mode requires stdin to be a TTY.
+    if (!process.stdin.isTTY) {
+      throw new Error("Missing required arguments. Run with --project, --pm-folder, and --phase, or provide them interactively.");
+    }
+    // Don't validate yet; interactiveBootstrap will fill in the gaps.
+  } else {
+    // Required args differ by action.
+    for (const key of ["project", "pmFolder"]) {
+      if (!out[key]) throw new Error(`Missing required --${key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`);
+    }
+    if (out.action === "bootstrap" && !out.phase) {
+      throw new Error(`Missing required --phase (required for --action bootstrap)`);
+    }
   }
   if (out.action === "log") {
     if (!out.logEvent) throw new Error(`Missing required --event (required for --action log)`);
@@ -180,6 +293,25 @@ function log(action, target, detail = "") {
 }
 
 const cli = parseArgs(process.argv);
+
+// Interactive mode for bootstrap when args are missing.
+if (cli.action === "bootstrap" && (!cli.project || !cli.pmFolder || !cli.phase)) {
+  if (!process.stdin.isTTY) {
+    console.error("Error: Missing required arguments. Provide --project, --pm-folder, and --phase, or run interactively.");
+    process.exit(1);
+  }
+  interactiveBootstrap(cli).then(() => {
+    // After interactive mode fills in the args, continue with the main flow.
+    runMain();
+  }).catch((err) => {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  });
+} else {
+  runMain();
+}
+
+function runMain() {
 const project = cli.project;
 const pmFolder = path.resolve(cli.pmFolder);
 const configPath = path.resolve(cli.config);
@@ -904,3 +1036,4 @@ if (cli.manuscriptHome) {
 console.log("");
 console.log("Verify with:");
 console.log(`  node ${path.join(SKILL_DIR, "scripts", "check-academic-pm.mjs")} --project ${project} --config ${configPath}`);
+} // end runMain()

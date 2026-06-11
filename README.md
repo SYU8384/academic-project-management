@@ -8,10 +8,24 @@ A portable agent skill for keeping academic research state in sync: literature, 
 
 Works especially well with an Obsidian vault, but the convention is plain Markdown plus a small local `projects.json` registry. The important part is behavioral: when meaningful research work happens, the agent updates the right current-state docs, indexes, and history logs in the same session.
 
+## 🗣️ Trigger Words
+
+Just say any of these phrases and the agent handles the workflow:
+
+| You say | Agent does |
+|---|---|
+| **"set up this project"** or **"setup this project"** | Asks for project name, PM folder path, research phase, and optional manuscript home. Shows summary, asks confirmation, then bootstraps everything. |
+| **"log this"** or **"I just finished the regression"** | Creates a dated history entry and updates `CURRENT_STATUS.md`. |
+| **"verify setup"** or **"check PM"** | Runs validator and reports findings. |
+| **"repair PM"** or **"fix indexes"** | Detects drift, shows what will be fixed, asks confirmation. |
+| **"set up OpenClaw PM"** | Displays the copy-paste prompt for OpenClaw workspace setup. |
+
+You don't need to remember script paths or flags. The agent asks for missing info and confirms before making changes.
+
 ## ✨ What It Does
 
 | Capability | What the agent does |
-|---|---|
+|---|---|---|
 | 📚 **Literature tracking** | Maintains reading queue, paper notes, related-work synthesis, and citation gaps in `literature/` |
 | 🔬 **Evidence management** | Tracks source registry, data provenance, measurement definitions, and data risks in `evidence/` |
 | 📊 **Analysis tracking** | Records methods, audit reports, verification checks, reproducibility notes, and findings in `analysis/` |
@@ -135,7 +149,29 @@ Every lane has a folder-note index (`lane/lane.md`) with an Obsidian-compatible 
 
 ## 🚀 Quick Start
 
-### Bootstrap a new project
+### The easy way: just talk to your agent
+
+```
+You: "set up this project"
+Agent: "What's the project name?"
+You: "MyPaper"
+Agent: "Where should I create the PM folder? [~/MyPaper]"
+You: (press Enter)
+Agent: "What phase are you in?"
+You: "2"  (for literature review)
+Agent: "Does this project have a manuscript home? [y/N]"
+You: "y"
+Agent: "Path to manuscript home:"
+You: "~/Code/MyPaper"
+Agent: "📋 Setup Summary: Project: MyPaper, Phase: literature, ..."
+      "Proceed? [y/N]"
+You: "y"
+Agent: "✅ Created PM folder with 12 files"
+```
+
+### The explicit way: run scripts directly
+
+**Bootstrap a new project:**
 
 ```bash
 node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
@@ -145,9 +181,12 @@ node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.
   --notes "Research on institutional career paths"
 ```
 
-This creates the 12-file scaffold (3 root + 1 landing page + 8 lane notes) and registers the project in `projects.json`.
+Or interactively (no args needed):
+```bash
+node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs
+```
 
-### Declare a manuscript home (when you have a LaTeX/code repo)
+**Declare a manuscript home:**
 
 ```bash
 node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
@@ -159,9 +198,7 @@ node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.
   --manuscript-access authoritative
 ```
 
-This wires the repo's `AGENTS.md` so coding/writing agents can find the PM folder.
-
-### Log completed work
+**Log completed work:**
 
 ```bash
 node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
@@ -266,6 +303,25 @@ Use this skill for **research memory**: project status, evidence trails, meeting
 Use [`academic-writer`](https://github.com/SYU8384/academic-writer) for **manuscript drafting**: LaTeX editing, revision prose, citation insertion, and PDF compilation.
 
 When manuscript state changes, update `writing/` in the PM folder; do not duplicate the manuscript in the PM folder. The `AGENTS.md` routing contract in the manuscript home tells both skills to defer to the PM folder's `README.md` for state changes.
+
+## 🤖 OpenClaw Integration
+
+For OpenClaw PM agents, use the dedicated instruction:
+
+```
+Read and follow this instruction:
+https://raw.githubusercontent.com/SYU8384/academic-project-management/main/openclaw-instruction.md
+```
+
+**OpenClaw's unique role:** Unlike coding agents (Codex, Claude) that only access the manuscript repo, OpenClaw serves as the **PM agent** with three special capabilities:
+
+1. **Dual AGENTS.md writing** — OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript repo's `AGENTS.md`** (telling coding agents where research state lives)
+
+2. **Research brainstorming** — Users can brainstorm ideas, discuss literature, and plan analyses through OpenClaw conversation. The agent automatically logs these sessions to `planning/` and `history/`
+
+3. **Meeting management** — After advisor discussions, OpenClaw records `meetings/` notes, extracts action items into `CURRENT_STATUS.md`, and updates affected lanes
+
+The OpenClaw instruction installs/updates the skill, verifies `projects.json`, configures the workspace `AGENTS.md`, audits all registered projects, and **asks approval before every edit**.
 
 ## 🧪 Validation
 
