@@ -25,7 +25,7 @@ You don't need to remember script paths or flags. The agent asks for missing inf
 ## ✨ What It Does
 
 | Capability | What the agent does |
-|---|---|---|
+|---|---|
 | 📚 **Literature tracking** | Maintains reading queue, paper notes, related-work synthesis, and citation gaps in `literature/` |
 | 🔬 **Evidence management** | Tracks source registry, data provenance, measurement definitions, and data risks in `evidence/` |
 | 📊 **Analysis tracking** | Records methods, audit reports, verification checks, reproducibility notes, and findings in `analysis/` |
@@ -48,65 +48,68 @@ Academic research memory usually decays in predictable ways:
 
 This skill gives agents a strict, repeatable operating model for academic project memory.
 
-## ⚙️ Install
+## 🚀 Quick Start
 
-### One-line install
+### The easy way: just talk to your agent
+
+```
+You: "set up this project"
+Agent: "What's the project name?"
+You: "MyPaper"
+Agent: "Where should I create the PM folder? [~/MyPaper]"
+You: (press Enter)
+Agent: "What phase are you in?"
+You: "2"  (for literature review)
+Agent: "Does this project have a manuscript home (LaTeX/code repo)? [y/N]"
+You: "n"
+Agent: "📋 Setup Summary: Project: MyPaper, Phase: literature, ..."
+      "Proceed? [y/N]"
+You: "y"
+Agent: "✅ Created PM folder with 12 files"
+```
+
+No manuscript repo? No problem. The PM folder works standalone for brainstorming, literature review, and planning.
+
+### The explicit way: run scripts directly
+
+**Bootstrap a new project:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash
+node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
+  --project MyPaper \
+  --pm-folder ~/vault/MyPaper \
+  --phase idea \
+  --notes "Research on institutional career paths"
 ```
 
-### Manual install
+Or interactively (no args needed):
+```bash
+node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs
+```
+
+**Log completed work:**
 
 ```bash
-git clone https://github.com/SYU8384/academic-project-management.git ~/.agents/skills/academic-project-management
-mkdir -p ~/.config/academic-pm
+node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
+  --project MyPaper \
+  --action log \
+  --event "Fixed issue #1 in unique-count table" \
+  --note analysis/2026-06-11-issue-fix.md
 ```
 
-Restart your agent after installing or updating the skill.
-
-### Target-specific install
+**Repair drift:**
 
 ```bash
-# For Codex
-curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- codex
-
-# For Claude
-curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- claude
-
-# For OpenClaw
-curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- openclaw
-
-# For custom path
-curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- custom /path/to/skills
+node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
+  --project MyPaper \
+  --action repair
 ```
 
-### Config location
+**Validate:**
 
-`projects.json` is private local config and is gitignored. It lives at:
-
-```
-~/.config/academic-pm/projects.json
-```
-
-The bootstrap script creates this automatically on first run. Edit it manually only if you need to:
-
-```json
-{
-  "projects": {
-    "MyPaper": {
-      "project_type": "paper",
-      "pm_folder": "/path/to/vault/MyPaper",
-      "vault_root": "/path/to/vault",
-      "phase": "analysis-writing",
-      "access": "authoritative",
-      "notes": "Short project description",
-      "manuscript_home": "/path/to/MyPaper-repo",
-      "manuscript_kind": "git-repo",
-      "manuscript_access": "authoritative"
-    }
-  }
-}
+```bash
+node ~/.agents/skills/academic-project-management/scripts/check-academic-pm.mjs \
+  --project MyPaper
 ```
 
 ## 🗂️ PM Folder Model
@@ -146,100 +149,6 @@ Optional folders (created only when needed):
 - `collaboration/` — External collaborator notes
 
 Every lane has a folder-note index (`lane/lane.md`) with an Obsidian-compatible `vault-maintain:index` block listing subfolders and notes.
-
-## 🚀 Quick Start
-
-### The easy way: just talk to your agent
-
-```
-You: "set up this project"
-Agent: "What's the project name?"
-You: "MyPaper"
-Agent: "Where should I create the PM folder? [~/MyPaper]"
-You: (press Enter)
-Agent: "What phase are you in?"
-You: "2"  (for literature review)
-Agent: "Does this project have a manuscript home? [y/N]"
-You: "y"
-Agent: "Path to manuscript home:"
-You: "~/Code/MyPaper"
-Agent: "📋 Setup Summary: Project: MyPaper, Phase: literature, ..."
-      "Proceed? [y/N]"
-You: "y"
-Agent: "✅ Created PM folder with 12 files"
-```
-
-### The explicit way: run scripts directly
-
-**Bootstrap a new project:**
-
-```bash
-node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
-  --project MyPaper \
-  --pm-folder ~/vault/MyPaper \
-  --phase idea \
-  --notes "Research on institutional career paths"
-```
-
-Or interactively (no args needed):
-```bash
-node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs
-```
-
-**Declare a manuscript home:**
-
-```bash
-node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
-  --project MyPaper \
-  --pm-folder ~/vault/MyPaper \
-  --phase analysis \
-  --manuscript-home ~/Code/MyPaper \
-  --manuscript-kind git-repo \
-  --manuscript-access authoritative
-```
-
-**Log completed work:**
-
-```bash
-node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
-  --project MyPaper \
-  --action log \
-  --event "Fixed issue #1 in unique-count table" \
-  --note analysis/2026-06-11-issue-fix.md
-```
-
-Automatically creates a dated history entry and updates `CURRENT_STATUS.md` Recent Progress.
-
-### Repair drift
-
-```bash
-node ~/.agents/skills/academic-project-management/scripts/bootstrap-academic-pm.mjs \
-  --project MyPaper \
-  --action repair
-```
-
-Recreates missing folder notes, updates indexes, detects new subfolders/notes. Does not touch `projects.json`.
-
-### Validate
-
-```bash
-# Auto-discovers projects.json
-node ~/.agents/skills/academic-project-management/scripts/check-academic-pm.mjs \
-  --project MyPaper
-
-# Or with explicit config
-node ~/.agents/skills/academic-project-management/scripts/check-academic-pm.mjs \
-  --project MyPaper \
-  --config ~/.config/academic-pm/projects.json
-
-# With custom thresholds
-node ~/.agents/skills/academic-project-management/scripts/check-academic-pm.mjs \
-  --project MyPaper \
-  --stale-days 7 \
-  --history-word-limit 800
-```
-
-Checks folder structure, indexes, wiki links, frontmatter, stale status, and manuscript-home wiring.
 
 ## 🔄 Workflow
 
@@ -288,13 +197,24 @@ The PM folder's `README.md` wins for routing.
 
 The bootstrap script manages this section end-to-end — append-safe (never overwrites user content outside markers) and idempotent (re-running refreshes in place).
 
+### Working without a manuscript repo
+
+**You don't need a manuscript repo to use this skill.** Many researchers start with just a PM folder:
+
+- **Idea stage** — Brainstorm research questions, track initial literature, record early decisions
+- **Grant writing** — Organize proposal sections, track requirements, log reviewer feedback
+- **Standalone literature review** — Build reading queues, synthesize findings, identify gaps
+- **Collaboration planning** — Share research state before any code or LaTeX exists
+
+When you're ready, add a manuscript home later by re-bootstrapping with `--manuscript-home`.
+
 ### When to declare each `manuscript_kind`
 
 | Project shape | `manuscript_home` | `manuscript_kind` | `manuscript_access` | AGENTS.md? |
 |---|---|---|---|---|
 | Single git repo with `.tex` + `.R` + figures | `/path/to/repo` | `git-repo` | `authoritative` | ✅ Yes |
 | Manuscript in `~/writing/`, no version control | `~/writing/MyPaper` | `local-folder` | n/a | ❌ No |
-| Paper project, no artifact yet (idea / dormant / grant) | — | `null` | `authoritative` | ❌ No |
+| **No manuscript yet** (idea / grant / brainstorming) | — | `null` | `authoritative` | ❌ No |
 
 ## 🤝 Integration with academic-writer
 
@@ -339,6 +259,67 @@ The integrated validator `check-academic-pm.mjs` runs all checks in one pass:
 
 Run with `--strict` to fail on warnings. Run with `--json` for machine-readable output.
 
+## ⚙️ Install
+
+### One-line install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash
+```
+
+### Manual install
+
+```bash
+git clone https://github.com/SYU8384/academic-project-management.git ~/.agents/skills/academic-project-management
+mkdir -p ~/.config/academic-pm
+```
+
+Restart your agent after installing or updating the skill.
+
+### Target-specific install
+
+```bash
+# For Codex
+curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- --target codex --yes
+
+# For Claude
+curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- --target claude --yes
+
+# For OpenClaw
+curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- --target openclaw --yes
+
+# For custom path
+curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash -s -- --dest /path/to/skills --yes
+```
+
+### Config location
+
+`projects.json` is private local config and is gitignored. It lives at:
+
+```
+~/.config/academic-pm/projects.json
+```
+
+The bootstrap script creates this automatically on first run. Edit it manually only if you need to:
+
+```json
+{
+  "projects": {
+    "MyPaper": {
+      "project_type": "paper",
+      "pm_folder": "/path/to/vault/MyPaper",
+      "vault_root": "/path/to/vault",
+      "phase": "analysis-writing",
+      "access": "authoritative",
+      "notes": "Short project description",
+      "manuscript_home": "/path/to/MyPaper-repo",
+      "manuscript_kind": "git-repo",
+      "manuscript_access": "authoritative"
+    }
+  }
+}
+```
+
 ## 🧰 Repository Map
 
 | Path | Purpose |
@@ -363,6 +344,7 @@ Run with `--strict` to fail on warnings. Run with `--json` for machine-readable 
 - **History stays concise.** Move detailed reports to `analysis/`; leave brief history entries behind. Default limits: 1200 words / 140 lines per history note.
 - **Strict routing in AGENTS.md.** If a coding or writing task needs research state that is not in the PM folder, the agent stops and asks. It does not invent research state at the manuscript home.
 - **Create-only by default.** The bootstrap script never overwrites user-edited files. Re-running only refreshes `projects.json` and the managed AGENTS.md section.
+- **Manuscript home is optional.** The PM folder works standalone for brainstorming, literature review, grant writing, and planning. Add a manuscript repo when you're ready.
 
 ## 📄 License
 
