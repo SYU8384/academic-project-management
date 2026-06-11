@@ -1,0 +1,16 @@
+{
+  "skill_dir": "/home/syu/.agents/skills/academic-project-management",
+  "projects": {
+    "PaperI": {
+      "project_type": "paper",
+      "pm_folder": "/mnt/c/Users/zhuqi/OneDrive/ドキュメント/Obsidian-Vaults/Syu's Vault/Research Projects/Prof. Tang - Chinese PS Studies/Paper I",
+      "vault_root": "/mnt/c/Users/zhuqi/OneDrive/ドキュメント/Obsidian-Vaults/Syu's Vault/Research Projects/Prof. Tang - Chinese PS Studies",
+      "phase": "analysis-writing",
+      "access": "authoritative",
+      "notes": "Paper I on institutionalized career paths to Chinese provincial leadership under Prof. Tang.",
+      "manuscript_home": "/mnt/c/Users/zhuqi/OneDrive/R Projects/Prof. Tang Research/Paper1",
+      "manuscript_kind": "git-repo",
+      "manuscript_access": "authoritative"
+    }
+  }
+}

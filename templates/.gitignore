@@ -1,0 +1,33 @@
+# Raw data files (keep sensitive data out of version control)
+*.csv
+*.xlsx
+*.xls
+*.dta
+*.sav
+*.rds
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Obsidian
+.obsidian/workspace*
+.obsidian/cache
+
+# R/Python environments
+renv/
+venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# LaTeX build artifacts (if manuscript is in this folder)
+*.aux
+*.out
+*.toc
+*.pdf

@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "<ProjectName>": {
+      "project_type": "paper",
+      "pm_folder": "",
+      "vault_root": "",
+      "phase": "idea | literature-review | study-design | data-collection | analysis | writing | analysis-writing | submitted | revision | published | dormant",
+      "access": "authoritative | read-only | unavailable",
+      "notes": "",
+      "manuscript_home": "",
+      "manuscript_kind": "git-repo | local-folder | null",
+      "manuscript_access": "authoritative | readonly | none"
+    }
+  }
+}
