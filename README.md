@@ -28,7 +28,8 @@ You don't need to remember script paths or flags. The agent asks for missing inf
 |---|---|
 | 📚 **Literature tracking** | Maintains reading queue, paper notes, related-work synthesis, and citation gaps in `literature/` |
 | 🔬 **Evidence management** | Tracks source registry, data provenance, measurement definitions, and data risks in `evidence/` |
-| 📊 **Analysis tracking** | Records methods, audit reports, verification checks, reproducibility notes, and findings in `analysis/` |
+| 📊 **Analysis tracking** | Records methods, findings, interpretations, modeling decisions, and methodology/process audits in `analysis/` |
+| ✅ **Verification tracking** | Records data verification reports, reproducibility checks, hand-calculation logs, and cross-file consistency audits in `verification/` (optional) |
 | ✍️ **Writing coordination** | Monitors draft status, figures, tables, submission notes, and revisions in `writing/` |
 | 👥 **Meeting notes** | Captures advisor/collaborator feedback, verbatim notes, and action items in `meetings/` |
 | 📝 **Decision logging** | Records research decisions with rationale and alternatives in `planning/` (lightweight ADR-style) |
@@ -128,7 +129,9 @@ MyPaper/
 ├── evidence/
 │   └── evidence.md        # Source registry, provenance, measurement definitions, data risks
 ├── analysis/
-│   └── analysis.md        # Methods, audits, verification, reproducibility, findings
+│   └── analysis.md        # Methods, findings, interpretations, modeling decisions, methodology/process audits
+├── verification/          # (optional) Data verification reports, reproducibility checks, hand-calc logs
+│   └── verification.md
 ├── writing/
 │   └── writing.md         # Outline, draft status, figures, tables, submission/revision notes
 ├── meetings/
@@ -142,7 +145,7 @@ MyPaper/
 ```
 
 Optional folders (created only when needed):
-- `docs/` — Additional documentation
+- `verification/` — Data verification reports, reproducibility checks, hand-calculation logs, cross-file consistency audits
 - `submissions/` — Journal/conference submission materials
 - `admin/` — Administrative paperwork
 - `ethics/` — Ethics approval and compliance
@@ -341,7 +344,7 @@ The bootstrap script creates this automatically on first run. Edit it manually o
 - **PM folder for state, manuscript home for artifacts.** Research state lives in the PM folder; executable artifacts live in the manuscript home. Never duplicate.
 - **Agents defer to README.md.** The project `README.md` is the routing map for every PM update. Agents do not invent routing rules.
 - **Config in user home, not skill directory.** `projects.json` lives at `~/.config/academic-pm/projects.json` (user-specific, gitignored); the skill repo contains only reusable conventions, templates, and scripts.
-- **History stays concise.** Move detailed reports to `analysis/`; leave brief history entries behind. Default limits: 1200 words / 140 lines per history note.
+- **History stays concise.** Move detailed reports to `analysis/` or `verification/`; leave brief history entries behind. Default limits: 1200 words / 140 lines per history note.
 - **Strict routing in AGENTS.md.** If a coding or writing task needs research state that is not in the PM folder, the agent stops and asks. It does not invent research state at the manuscript home.
 - **Create-only by default.** The bootstrap script never overwrites user-edited files. Re-running only refreshes `projects.json` and the managed AGENTS.md section.
 - **Manuscript home is optional.** The PM folder works standalone for brainstorming, literature review, grant writing, and planning. Add a manuscript repo when you're ready.

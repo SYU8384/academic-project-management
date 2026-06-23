@@ -15,7 +15,7 @@ const REQUIRED_FOLDERS = [
   "history",
   "archive",
 ];
-const OPTIONAL_FOLDERS = ["docs", "submissions", "admin", "ethics", "collaboration"];
+const OPTIONAL_FOLDERS = ["verification", "submissions", "admin", "ethics", "collaboration"];
 const IGNORED_DIRS = new Set([".git", ".obsidian", "node_modules"]);
 const REQUIRED_FRONTMATTER_FIELDS = ["title", "created", "updated", "last_reviewed", "pageType", "status"];
 const HISTORY_WORD_WARNING = 1200;

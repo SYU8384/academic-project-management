@@ -10,12 +10,13 @@ Before coding or writing:
 - If your change affects a coherent feature or analysis, read `analysis/` and the relevant `writing/` notes.
 
 After coding or writing:
-- Did current methods, data processing, or analysis behavior change? If yes, update the relevant `analysis/` note (methods, audits, verification, reproducibility).
+- Did current methods, data processing, or analysis behavior change? If yes, update the relevant `analysis/` note (methods, findings, interpretations, modeling decisions, methodology/process audits).
+- Did a data verification report, reproducibility check, hand-calculation log, or cross-file consistency audit change? If yes, update `verification/` (optional lane).
 - Did the underlying data or its provenance change? If yes, update `evidence/` (source registry, measurement definitions, data risks).
 - Did the manuscript outline, draft, figures, tables, or submission status change? If yes, update `writing/` (do not duplicate manuscript prose in either the PM folder or the code side of the manuscript home).
 - Did a literature note, citation, or reading-queue item change? If yes, update `literature/`.
 - Did an active planning plan complete, partially complete, or get superseded? If yes, update `planning/` and reflect the outcome in `CURRENT_STATUS.md`.
-- Did a new bug, data risk, reproducibility gap, or blocker appear? If yes, note it in `analysis/` (with verification details) and surface it in `CURRENT_STATUS.md`.
+- Did a new bug, data risk, reproducibility gap, or blocker appear? If yes, note it in `analysis/` (with verification details in `verification/` if applicable) and surface it in `CURRENT_STATUS.md`.
 - Did the research framing or scope shift? If yes, update `RESEARCH.md`.
 - Did a research decision worth durably recording happen? If yes, add a note in `planning/` (lightweight ADR-style) with the rationale and alternatives considered.
 - Did any note get added, moved, renamed, archived, or deleted? If yes, update the affected folder indexes in the same session.

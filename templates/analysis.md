@@ -9,7 +9,7 @@ owner: <owner>
 ---
 # analysis
 
-Methods, audits, verification reports, reproducibility checks, and findings.
+Methods, findings, interpretations, modeling decisions, and methodology/process audits.
 
 <!-- vault-maintain:index:start -->
 ## Subfolders
@@ -27,7 +27,7 @@ Methods, audits, verification reports, reproducibility checks, and findings.
 
 ## Reproducibility Notes
 
-- TBD.
+- Keep detailed verification reports in `verification/`, not here.
 
 ## Navigation
 

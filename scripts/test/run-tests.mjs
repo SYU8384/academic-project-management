@@ -396,46 +396,51 @@ step("T12 repair adds missing subfolder/notes entries to lane indexes", () => {
   );
 });
 
-// Test 13: --action repair creates missing folder notes (required + optional).
-const pm13 = freshWorkdir("repair-missing");
-step("T13 repair recreates missing folder notes", () => {
-  bootstrap([
-    "--project", "T13Project", "--pm-folder", pm13, "--phase", "analysis",
-    "--notes", "T13", "--config", path.join(pm13, "projects.json"),
-  ]);
-  // Delete a required folder note.
-  fs.unlinkSync(path.join(pm13, "writing/writing.md"));
-  // Create an optional folder without its folder note.
-  fs.mkdirSync(path.join(pm13, "submissions"));
-  // Run repair.
-  bootstrap([
-    "--project", "T13Project", "--pm-folder", pm13,
-    "--config", path.join(pm13, "projects.json"),
-    "--action", "repair",
-  ]);
-  // Required folder note recreated from the template (contains the
-  // template's distinguishing section header).
-  assert(
-    fs.existsSync(path.join(pm13, "writing/writing.md")),
-    "repair did not recreate writing/writing.md",
-  );
-  const writingContent = fs.readFileSync(path.join(pm13, "writing/writing.md"), "utf8");
-  assert(
-    writingContent.includes("## Draft Status"),
-    "recreated writing.md missing the template's Draft Status section",
-  );
-  // Optional folder note created.
-  assert(
-    fs.existsSync(path.join(pm13, "submissions/submissions.md")),
-    "repair did not create submissions/submissions.md",
-  );
-  // Root index updated.
-  const rootContent = fs.readFileSync(path.join(pm13, "T13Project.md"), "utf8");
-  assert(
-    rootContent.includes("submissions/submissions"),
-    "repair did not add submissions to the root subfolders index",
-  );
-});
+  // Test 13: --action repair creates missing folder notes (required + optional).
+  const pm13 = freshWorkdir("repair-missing");
+  step("T13 repair recreates missing folder notes", () => {
+    bootstrap([
+      "--project", "T13Project", "--pm-folder", pm13, "--phase", "analysis",
+      "--notes", "T13", "--config", path.join(pm13, "projects.json"),
+    ]);
+    // Delete a required folder note.
+    fs.unlinkSync(path.join(pm13, "writing/writing.md"));
+    // Create an optional folder without its folder note.
+    fs.mkdirSync(path.join(pm13, "verification"));
+    // Run repair.
+    bootstrap([
+      "--project", "T13Project", "--pm-folder", pm13,
+      "--config", path.join(pm13, "projects.json"),
+      "--action", "repair",
+    ]);
+    // Required folder note recreated from the template (contains the
+    // template's distinguishing section header).
+    assert(
+      fs.existsSync(path.join(pm13, "writing/writing.md")),
+      "repair did not recreate writing/writing.md",
+    );
+    const writingContent = fs.readFileSync(path.join(pm13, "writing/writing.md"), "utf8");
+    assert(
+      writingContent.includes("## Draft Status"),
+      "recreated writing.md missing the template's Draft Status section",
+    );
+    // Optional folder note created.
+    assert(
+      fs.existsSync(path.join(pm13, "verification/verification.md")),
+      "repair did not create verification/verification.md",
+    );
+    const verificationContent = fs.readFileSync(path.join(pm13, "verification/verification.md"), "utf8");
+    assert(
+      verificationContent.includes("## Active Verification Items"),
+      "recreated verification.md missing the template's Active Verification Items section",
+    );
+    // Root index updated.
+    const rootContent = fs.readFileSync(path.join(pm13, "T13Project.md"), "utf8");
+    assert(
+      rootContent.includes("verification/verification"),
+      "repair did not add verification to the root subfolders index",
+    );
+  });
 
 // Test 14: --action repair on a fresh project reports no drift detected.
 const pm14 = freshWorkdir("repair-noop");

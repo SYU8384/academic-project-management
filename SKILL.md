@@ -62,7 +62,7 @@ Put the note in `meetings/`, extract action items into `CURRENT_STATUS.md`, upda
 
 ### 4. Track data or reproducibility work
 
-Source registries, dataset provenance, audit reports, verification reports, and reproducibility decisions go in `evidence/` or `analysis/`. Keep raw sensitive data out of the PM folder unless `README.md` explicitly permits it.
+Source registries, dataset provenance, measurement definitions, and data risks go in `evidence/`. Data verification reports, reproducibility checks, hand-calculation logs, and cross-file consistency audits go in `verification/` (optional lane). Methods, findings, interpretations, and methodology/process audits go in `analysis/`. Keep raw sensitive data out of the PM folder unless `README.md` explicitly permits it.
 
 ### 5. Declare the manuscript home and wire AGENTS.md
 
@@ -79,7 +79,7 @@ literature/  evidence/  analysis/  writing/
 meetings/  planning/  history/  archive/
 ```
 
-Each lane has a `<lane>/<lane>.md` folder note with an Obsidian-compatible index (see REFERENCE.md). Optional folders (`docs/`, `submissions/`, `admin/`, `ethics/`, `collaboration/`) are preserved when present and created only when needed.
+Each lane has a `<lane>/<lane>.md` folder note with an Obsidian-compatible index (see REFERENCE.md). Optional lanes (`verification/`, `submissions/`, `admin/`, `ethics/`, `collaboration/`) are preserved when present and created only when needed.
 
 ## Route Information
 
@@ -89,7 +89,8 @@ Each lane has a `<lane>/<lane>.md` folder note with an Obsidian-compatible index
 | Current phase, priorities, blockers, recent progress, next actions | `CURRENT_STATUS.md` |
 | Paper notes, reading queue, related-work synthesis, citation gaps | `literature/` |
 | Dataset/source registry, provenance, measurement definitions, data risks | `evidence/` |
-| Methods, audits, verification reports, reproducibility checks, findings | `analysis/` |
+| Methods, findings, interpretations, methodology/process audits | `analysis/` |
+| Data verification reports, reproducibility checks, hand-calculation logs, cross-file consistency audits | `verification/` (optional) |
 | Outline, draft status, figures, tables, submission/revision notes | `writing/` |
 | Advisor/collaborator meetings, feedback, action items | `meetings/` |
 | Concrete next-work plans and research decisions | `planning/` |

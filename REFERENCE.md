@@ -21,17 +21,17 @@ history/history.md
 archive/archive.md
 ```
 
-Optional folders:
+Optional lanes:
 
 ```text
-docs/
-submissions/
-admin/
-ethics/
-collaboration/
+verification/   # data verification reports, reproducibility checks, hand-calc logs
+submissions/    # submission packages, cover letters, reviewer responses
+admin/          # funding, travel, compliance, deadlines
+ethics/         # IRB, consent, privacy, human-subjects documentation
+collaboration/  # shared notes with co-authors
 ```
 
-Preserve optional folders already present. Create new optional folders only when the current project needs them.
+Preserve optional lanes already present. Create new optional lanes only when the current project needs them.
 
 ## Setup Intake
 
@@ -62,7 +62,8 @@ For new or normalized folders, seed required root notes and folder notes from `t
 | `CURRENT_STATUS.md` | Current phase, top priorities, blockers, recent progress, next actions |
 | `literature/` | Paper notes, reading queue, related-work synthesis, citation gaps |
 | `evidence/` | Data/source registry, provenance, measurement definitions, data risks |
-| `analysis/` | Methods, audit reports, verification reports, reproducibility checks, findings |
+| `analysis/` | Methods, findings, interpretations, modeling decisions, methodology/process audits |
+| `verification/` (optional) | Data verification reports, reproducibility checks, hand-calculation logs, cross-file consistency audits |
 | `writing/` | Manuscript outline, section status, figures, tables, submissions, revisions |
 | `meetings/` | Advisor/collaborator meeting notes, feedback, action items |
 | `planning/` | Concrete work plans and lightweight research decisions |

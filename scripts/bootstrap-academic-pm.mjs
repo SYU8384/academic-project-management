@@ -20,7 +20,7 @@ const REQUIRED_FOLDERS = [
   "archive",
 ];
 
-const OPTIONAL_FOLDERS = ["docs", "submissions", "admin", "ethics", "collaboration"];
+const OPTIONAL_FOLDERS = ["verification", "submissions", "admin", "ethics", "collaboration"];
 
 const PHASES = [
   { value: "idea", desc: "Initial concept, no literature review yet" },
@@ -421,12 +421,13 @@ function laneDescription(folder) {
   return {
     literature: "paper notes, synthesis, citation gaps",
     evidence: "source registry, data provenance, measurement definitions",
-    analysis: "methods, audits, verification, reproducibility",
+    analysis: "methods, findings, interpretations, modeling decisions",
     writing: "draft, figures, tables, submission notes",
     meetings: "advisor and collaborator notes",
     planning: "plans and decisions",
     history: "concise completed-work logs",
     archive: "superseded material",
+    verification: "data verification, reproducibility checks, hand-calc logs",
   }[folder] ?? "project notes";
 }
 
@@ -770,8 +771,15 @@ function repairMissingFolderNotes() {
     if (fs.existsSync(folderAbs) && fs.statSync(folderAbs).isDirectory()) {
       const note = path.join(folderAbs, `${folder}.md`);
       if (!fs.existsSync(note)) {
-        const body = `${frontmatter(folder, "index")}# ${folder}\n\nOptional folder. Edit to describe what lives here.\n\n<!-- vault-maintain:index:start -->\n## Subfolders\n\n*(no items)*\n\n## Notes\n\n*(no items)*\n<!-- vault-maintain:index:end -->\n\n${nav(["../README", "Back to README"], ["../" + project, `Back to ${project}`])}`;
-        findings.push({ kind: "missing-folder-note", target: note, action: "recreate-default" });
+        const templatePath = path.join(SKILL_DIR, "templates", `${folder}.md`);
+        let body;
+        if (fs.existsSync(templatePath)) {
+          body = loadAndSubstitute(`${folder}.md`);
+          findings.push({ kind: "missing-folder-note", target: note, action: "recreate-from-template" });
+        } else {
+          body = `${frontmatter(folder, "index")}# ${folder}\n\nOptional folder. Edit to describe what lives here.\n\n<!-- vault-maintain:index:start -->\n## Subfolders\n\n*(no items)*\n\n## Notes\n\n*(no items)*\n<!-- vault-maintain:index:end -->\n\n${nav(["../README", "Back to README"], ["../" + project, `Back to ${project}`])}`;
+          findings.push({ kind: "missing-folder-note", target: note, action: "recreate-default" });
+        }
         writeCreateOnly(note, body);
       }
     }
