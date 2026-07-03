@@ -25,7 +25,7 @@ The skill stores its registry at `~/.config/academic-pm/projects.json` (user-spe
 
 ## 3. Configure Your OpenClaw Workspace `AGENTS.md`
 
-As the OpenClaw PM agent, you have a unique role: you manage the PM folder **and** you can write to the manuscript repo's `AGENTS.md`. Update your own workspace `AGENTS.md` to declare this role:
+As the OpenClaw PM agent, you have a unique role: you manage the PM folder **and** you can write to the manuscript/workfile folder's `AGENTS.md`. Update your own workspace `AGENTS.md` to declare this role:
 
 Add this section (or update it if it exists):
 
@@ -59,8 +59,8 @@ For each project in `projects.json`:
    ```
 4. **Check manuscript home** (if declared):
    - Verify `manuscript_home` path exists
-   - For `git-repo` + `authoritative`: verify `AGENTS.md` exists and has the managed section
-   - For `read-only`: verify you can read but will not write to the repo's `AGENTS.md`
+   - For `git-repo` or `local-folder` + `authoritative`: verify `AGENTS.md` exists and has the managed section
+   - For `read-only`: verify you can read but will not write to the manuscript/workfile folder's `AGENTS.md`
 5. **Report findings** to the user with specific fix recommendations
 
 ## 5. Ask Before Editing
@@ -68,7 +68,7 @@ For each project in `projects.json`:
 **Always ask user confirmation before:**
 - Creating new PM folders or files
 - Modifying existing notes (except `CURRENT_STATUS.md` and history entries)
-- Writing to manuscript repo `AGENTS.md`
+- Writing to manuscript/workfile folder `AGENTS.md`
 - Running repair actions that modify files
 
 **Show the user:**
@@ -95,10 +95,11 @@ When the user says "set up this project" or similar:
    - `revision` — Addressing reviewer comments, revising claims
    - `submission` — Preparing submission materials
    - `published` — Paper published, project maintenance mode
-4. Ask if there's a manuscript home (LaTeX/code repo)
+4. Ask if there's a manuscript home (LaTeX/code workfile folder)
    - If yes: ask for path, detect if git repo
    - If git repo: set `manuscript_kind: git-repo`
    - If local folder: set `manuscript_kind: local-folder`
+   - For authoritative access, bootstrap will create or refresh that folder's `AGENTS.md`
 5. Show summary and ask for confirmation
 6. Run bootstrap script with `--yes` flag (since user already confirmed)
 7. Report what was created
@@ -123,7 +124,7 @@ As the OpenClaw PM agent, you have capabilities that coding agents (Codex, Claud
 - **Track literature** by updating `literature/` when the user discusses papers
 - **Record meetings** by writing `meetings/` notes after advisor discussions
 - **Manage the PM folder directly** with authoritative access
-- **Wire manuscript repos** by writing both your workspace AGENTS.md and the repo's AGENTS.md
+- **Wire manuscript/workfile folders** by writing both your workspace AGENTS.md and the folder's AGENTS.md
 - **Ask clarifying questions** about research state before making changes
 
-Remember: coding agents focus on the manuscript repo (LaTeX, code, figures). You focus on the PM folder (research state, evidence, decisions, history). Coordinate through the shared `AGENTS.md` section.
+Remember: coding agents focus on the manuscript/workfile folder (LaTeX, code, figures). You focus on the PM folder (research state, evidence, decisions, history). Coordinate through the shared `AGENTS.md` section.

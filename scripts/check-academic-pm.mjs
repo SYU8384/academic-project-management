@@ -423,15 +423,16 @@ function checkManuscriptHome(report, manuscriptHome, manuscriptKind) {
 
 function checkManuscriptHomeAgentsMd(report, manuscriptHome, manuscriptKind, manuscriptAccess, pmRoot) {
   if (!manuscriptHome) return;
-  if (manuscriptKind !== "git-repo") {
+  const agentsManagedKinds = new Set(["git-repo", "local-folder"]);
+  if (!agentsManagedKinds.has(manuscriptKind)) {
     if (!report.manuscriptHome) report.manuscriptHome = { path: manuscriptHome, kind: manuscriptKind ?? "unknown" };
     else report.manuscriptHome.kind = manuscriptKind ?? "unknown";
     return;
   }
   if (manuscriptAccess === "none" || manuscriptAccess === "read-only") {
-    if (!report.manuscriptHome) report.manuscriptHome = { path: manuscriptHome, kind: "git-repo", access: manuscriptAccess };
+    if (!report.manuscriptHome) report.manuscriptHome = { path: manuscriptHome, kind: manuscriptKind, access: manuscriptAccess };
     else {
-      report.manuscriptHome.kind = "git-repo";
+      report.manuscriptHome.kind = manuscriptKind;
       report.manuscriptHome.access = manuscriptAccess;
       report.manuscriptHome.checked = false;
       report.manuscriptHome.reason = `manuscript_access=${manuscriptAccess}`;
@@ -439,8 +440,8 @@ function checkManuscriptHomeAgentsMd(report, manuscriptHome, manuscriptKind, man
     return;
   }
 
-  if (!report.manuscriptHome) report.manuscriptHome = { path: manuscriptHome, kind: "git-repo" };
-  report.manuscriptHome.kind = "git-repo";
+  if (!report.manuscriptHome) report.manuscriptHome = { path: manuscriptHome, kind: manuscriptKind };
+  report.manuscriptHome.kind = manuscriptKind;
   report.manuscriptHome.access = manuscriptAccess ?? "authoritative";
 
   if (!fs.existsSync(manuscriptHome)) return; // already reported by checkManuscriptHome

@@ -191,14 +191,14 @@ Repair workflow:
 | `read-only` | Agent may read and suggest changes |
 | `unavailable` | Agent should ask for access and avoid inventing a PM folder |
 
-`manuscript_home`, `manuscript_kind`, and `manuscript_access` are required fields. The bootstrap script records them and, when the manuscript home is a git repo with `authoritative` access, writes a managed routing section into `<manuscript_home>/AGENTS.md`. See **Manuscript Home And AGENTS.md Integration** below.
+`manuscript_home`, `manuscript_kind`, and `manuscript_access` are required fields. The bootstrap script records them and, when the manuscript home is a git repo or local folder with `authoritative` access, writes a managed routing section into `<manuscript_home>/AGENTS.md`. See **Manuscript Home And AGENTS.md Integration** below.
 
 `manuscript_kind` values:
 
 | Kind | Meaning |
 |---|---|
 | `git-repo` | Version-controlled repo; bootstrap may write a managed `AGENTS.md` section |
-| `local-folder` | A plain folder (e.g. `~/writing/Paper I/`); no `AGENTS.md` integration |
+| `local-folder` | A plain workfile folder (e.g. `~/writing/Paper I/`); bootstrap may write a managed `AGENTS.md` section |
 | `null` | Project has no manuscript artifact yet (idea, dormant, grant-only) |
 
 `manuscript_access` values:
@@ -221,14 +221,14 @@ Academic projects have a two-folder problem: the PM folder holds research state 
 
 The manuscript-home integration is the answer: a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at the PM folder, and tells them to defer to `academic-project-management` for any state change.
 
-For most projects, the manuscript home is a single git repo that contains both the LaTeX sources and the analysis code. The skill models this with one `AGENTS.md` in that folder — there is no separate code repo `AGENTS.md`.
+For most projects, the manuscript home is a single workfile folder that contains both the LaTeX sources and the analysis code. It may be a git repo or a plain local folder. The skill models this with one `AGENTS.md` in that folder — there is no separate code repo `AGENTS.md`.
 
 ### When to declare each `manuscript_kind`
 
 | Project shape | `manuscript_home` | `manuscript_kind` | `manuscript_access` | AGENTS.md written? |
 |---|---|---|---|---|
 | Single git repo with `.tex` + `.R` + figures | `/path/to/repo` | `git-repo` | `authoritative` (default) | yes |
-| Manuscript in `~/writing/`, no version control | `~/writing/Paper I` | `local-folder` | n/a | no |
+| Manuscript in `~/writing/`, no version control | `~/writing/Paper I` | `local-folder` | `authoritative` (default) | yes |
 | Paper project, no artifact side yet (idea / dormant / grant) | empty | `null` | `authoritative` (default) | no |
 
 ### The contract
@@ -261,7 +261,7 @@ Strict routing:
 
 ### Bootstrap
 
-The bootstrap script handles `AGENTS.md` automatically when the manuscript home is a git repo with `authoritative` access:
+The bootstrap script handles `AGENTS.md` automatically when the manuscript home is a git repo or local folder with `authoritative` access:
 
 ```bash
 node <skill_dir>/scripts/bootstrap-academic-pm.mjs \
@@ -288,12 +288,11 @@ node <skill_dir>/scripts/bootstrap-academic-pm.mjs \
 
 Behavior:
 
-- If `<manuscript_home>/AGENTS.md` does not exist and `manuscript_kind = git-repo` and `manuscript_access = authoritative`, it is created with the managed section.
+- If `<manuscript_home>/AGENTS.md` does not exist and `manuscript_kind = git-repo|local-folder` and `manuscript_access = authoritative`, it is created with the managed section.
 - If it exists but has no managed markers, the section is appended below the existing content.
 - If it exists and has managed markers, the section between the markers is replaced in place. Anything outside the markers is preserved verbatim.
 - `--no-agents-md` skips the file write entirely (the `manuscript_*` fields are still recorded in `projects.json`).
 - `--manuscript-access read-only|none` skips the file write without removing the field.
-- `--manuscript-kind local-folder` skips the file write (the folder has no `AGENTS.md` integration).
 - `--manuscript-kind null` records the field as null and skips the file write.
 
 ### Validation
@@ -307,7 +306,7 @@ node <skill_dir>/scripts/check-academic-pm.mjs --project <ProjectName> --config 
 It checks:
 
 - `manuscript_home` exists and is a directory, when set.
-- When `manuscript_kind = git-repo` and `manuscript_access = authoritative`, `<manuscript_home>/AGENTS.md` exists.
+- When `manuscript_kind = git-repo|local-folder` and `manuscript_access = authoritative`, `<manuscript_home>/AGENTS.md` exists.
 - The managed section markers are present in `<manuscript_home>/AGENTS.md`.
 - The PM folder path declared in the section matches `projects.json` (drift detection).
 

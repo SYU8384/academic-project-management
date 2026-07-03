@@ -80,19 +80,20 @@ async function interactiveBootstrap(out) {
     out.notes = answer || defaultNotes;
   }
 
-  const hasManuscript = await prompt("\nDoes this project have a manuscript home (LaTeX/code repo)? [y/N]: ");
+  const hasManuscript = await prompt("\nDoes this project have a manuscript home (LaTeX/code workfile folder)? [y/N]: ");
   if (hasManuscript.toLowerCase() === "y" || hasManuscript.toLowerCase() === "yes") {
     const homePath = await prompt("Manuscript home path: ");
     if (homePath) {
       out.manuscriptHome = homePath;
-      // Auto-detect if it's a git repo
+      // Auto-detect whether this is a git repo. Both git repos and local
+      // folders can receive the managed AGENTS.md routing section.
       const gitDir = path.join(homePath, ".git");
       if (fs.existsSync(gitDir)) {
         out.manuscriptKind = "git-repo";
         console.log(`   Detected git repository`);
       } else {
-        const kind = await prompt("  Type: [1] git-repo [2] local-folder [1]: ");
-        out.manuscriptKind = kind === "2" ? "local-folder" : "git-repo";
+        const kind = await prompt("  Type: [1] local-folder [2] git-repo [1]: ");
+        out.manuscriptKind = kind === "2" ? "git-repo" : "local-folder";
       }
       const access = await prompt("  Access level [1] authoritative [2] read-only [1]: ");
       out.manuscriptAccess = access === "2" ? "read-only" : "authoritative";
@@ -515,10 +516,6 @@ function writeManuscriptHomeAgentsMd() {
   }
   if (!cli.manuscriptHome) {
     log("skip", "AGENTS.md", "no --manuscript-home");
-    return;
-  }
-  if (cli.manuscriptKind === "local-folder") {
-    log("skip", "AGENTS.md", "manuscript_kind=local-folder");
     return;
   }
   if (cli.manuscriptAccess === "none" || cli.manuscriptAccess === "read-only") {

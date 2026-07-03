@@ -33,7 +33,7 @@ You don't need to remember script paths or flags. The agent asks for missing inf
 | ✍️ **Writing coordination** | Monitors draft status, figures, tables, submission notes, and revisions in `writing/` |
 | 👥 **Meeting notes** | Captures advisor/collaborator feedback, verbatim notes, and action items in `meetings/` |
 | 📝 **Decision logging** | Records research decisions with rationale and alternatives in `planning/` (lightweight ADR-style) |
-| 🔗 **Manuscript home integration** | Wires `AGENTS.md` in your LaTeX/code repo so agents know where research state lives |
+| 🔗 **Manuscript home integration** | Wires `AGENTS.md` in your LaTeX/code workfile folder so agents know where research state lives |
 | 🧪 **Validation & drift detection** | Checks folder structure, indexes, wiki links, stale status, and manuscript-home wiring |
 
 ## 🧠 Why This Exists
@@ -45,7 +45,7 @@ Academic research memory usually decays in predictable ways:
 - **Advisor feedback gets lost** — action items from meetings live in email threads, never reaching the project state
 - **Reproducibility notes are incomplete** — datasets, methods, and verification steps are scattered across notebooks
 - **Research decisions evaporate** — why a method was chosen, why a dataset was excluded, why a claim was revised
-- **Agents can't find the research context** — coding agents open the repo and have no way to discover the PM folder, questions, claims, or current blockers
+- **Agents can't find the research context** — coding agents open the workfile folder and have no way to discover the PM folder, questions, claims, or current blockers
 
 This skill gives agents a strict, repeatable operating model for academic project memory.
 
@@ -61,7 +61,7 @@ Agent: "Where should I create the PM folder? [~/MyPaper]"
 You: (press Enter)
 Agent: "What phase are you in?"
 You: "2"  (for literature review)
-Agent: "Does this project have a manuscript home (LaTeX/code repo)? [y/N]"
+Agent: "Does this project have a manuscript home (LaTeX/code workfile folder)? [y/N]"
 You: "n"
 Agent: "📋 Setup Summary: Project: MyPaper, Phase: literature, ..."
       "Proceed? [y/N]"
@@ -69,7 +69,7 @@ You: "y"
 Agent: "✅ Created PM folder with 12 files"
 ```
 
-No manuscript repo? No problem. The PM folder works standalone for brainstorming, literature review, and planning.
+No manuscript/workfile folder? No problem. The PM folder works standalone for brainstorming, literature review, and planning.
 
 ### The explicit way: run scripts directly
 
@@ -184,7 +184,7 @@ Academic projects have a **two-folder problem**:
 - **PM folder** (`~/vault/MyPaper/`) holds research state: questions, claims, evidence, literature, meetings, decisions, history
 - **Manuscript home** (`~/Code/MyPaper/`) holds executable artifacts: LaTeX source, analysis scripts, figures, configs, replication code
 
-A coding agent opening the repo has no way to find the PM folder on its own. The integration solves this with a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at the PM folder.
+A coding agent opening the manuscript/workfile folder has no way to find the PM folder on its own. The integration solves this with a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at the PM folder.
 
 ```markdown
 <!-- academic-project-management:section:start -->
@@ -200,9 +200,9 @@ The PM folder's `README.md` wins for routing.
 
 The bootstrap script manages this section end-to-end — append-safe (never overwrites user content outside markers) and idempotent (re-running refreshes in place).
 
-### Working without a manuscript repo
+### Working without a manuscript home
 
-**You don't need a manuscript repo to use this skill.** Many researchers start with just a PM folder:
+**You don't need a manuscript/workfile folder to use this skill.** Many researchers start with just a PM folder:
 
 - **Idea stage** — Brainstorm research questions, track initial literature, record early decisions
 - **Grant writing** — Organize proposal sections, track requirements, log reviewer feedback
@@ -216,7 +216,7 @@ When you're ready, add a manuscript home later by re-bootstrapping with `--manus
 | Project shape | `manuscript_home` | `manuscript_kind` | `manuscript_access` | AGENTS.md? |
 |---|---|---|---|---|
 | Single git repo with `.tex` + `.R` + figures | `/path/to/repo` | `git-repo` | `authoritative` | ✅ Yes |
-| Manuscript in `~/writing/`, no version control | `~/writing/MyPaper` | `local-folder` | n/a | ❌ No |
+| Manuscript in `~/writing/`, no version control | `~/writing/MyPaper` | `local-folder` | `authoritative` | ✅ Yes |
 | **No manuscript yet** (idea / grant / brainstorming) | — | `null` | `authoritative` | ❌ No |
 
 ## 🤝 Integration with academic-writer
@@ -236,9 +236,9 @@ Read and follow this instruction:
 https://raw.githubusercontent.com/SYU8384/academic-project-management/main/openclaw-instruction.md
 ```
 
-**OpenClaw's unique role:** Unlike coding agents (Codex, Claude) that only access the manuscript repo, OpenClaw serves as the **PM agent** with three special capabilities:
+**OpenClaw's unique role:** Unlike coding agents (Codex, Claude) that only access the manuscript/workfile folder, OpenClaw serves as the **PM agent** with three special capabilities:
 
-1. **Dual AGENTS.md writing** — OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript repo's `AGENTS.md`** (telling coding agents where research state lives)
+1. **Dual AGENTS.md writing** — OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript/workfile folder's `AGENTS.md`** (telling coding agents where research state lives)
 
 2. **Research brainstorming** — Users can brainstorm ideas, discuss literature, and plan analyses through OpenClaw conversation. The agent automatically logs these sessions to `planning/` and `history/`
 
@@ -257,7 +257,7 @@ The integrated validator `check-academic-pm.mjs` runs all checks in one pass:
 - ✅ `CURRENT_STATUS.md` freshness (default: warn if >14 days stale)
 - ✅ History note size limits (default: warn if >1200 words or >140 lines)
 - ✅ Manuscript home exists and is directory (when declared)
-- ✅ `AGENTS.md` managed section present and correct (for git-repo + authoritative)
+- ✅ `AGENTS.md` managed section present and correct (for git-repo/local-folder + authoritative)
 - ✅ PM folder path in AGENTS.md matches `projects.json` (drift detection)
 
 Run with `--strict` to fail on warnings. Run with `--json` for machine-readable output.
@@ -335,7 +335,7 @@ The bootstrap script creates this automatically on first run. Edit it manually o
 | [`templates/projects.template.json`](templates/projects.template.json) | Starter for `~/.config/academic-pm/projects.json` |
 | [`scripts/bootstrap-academic-pm.mjs`](scripts/bootstrap-academic-pm.mjs) | Bootstrap, repair, and log actions; idempotent scaffold creation |
 | [`scripts/check-academic-pm.mjs`](scripts/check-academic-pm.mjs) | Integrated validator: PM folder + manuscript home + AGENTS.md |
-| [`scripts/test/run-tests.mjs`](scripts/test/run-tests.mjs) | Self-test suite: 18 tests covering bootstrap, idempotency, AGENTS.md, repair, log |
+| [`scripts/test/run-tests.mjs`](scripts/test/run-tests.mjs) | Self-test suite covering bootstrap, idempotency, AGENTS.md, repair, log |
 | [`LICENSE`](LICENSE) | MIT license |
 
 ## 📐 Design Principles
@@ -347,7 +347,7 @@ The bootstrap script creates this automatically on first run. Edit it manually o
 - **History stays concise.** Move detailed reports to `analysis/` or `verification/`; leave brief history entries behind. Default limits: 1200 words / 140 lines per history note.
 - **Strict routing in AGENTS.md.** If a coding or writing task needs research state that is not in the PM folder, the agent stops and asks. It does not invent research state at the manuscript home.
 - **Create-only by default.** The bootstrap script never overwrites user-edited files. Re-running only refreshes `projects.json` and the managed AGENTS.md section.
-- **Manuscript home is optional.** The PM folder works standalone for brainstorming, literature review, grant writing, and planning. Add a manuscript repo when you're ready.
+- **Manuscript home is optional.** The PM folder works standalone for brainstorming, literature review, grant writing, and planning. Add a manuscript/workfile folder when you're ready.
 
 ## 📄 License
 

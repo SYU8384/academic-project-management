@@ -13,7 +13,7 @@ Quick mapping from user phrases to skill actions. Use this to find the recipe th
 | User says | Action | Recipe |
 |---|---|---|
 | "set up academic project", "initialize the pm folder", "bootstrap the pm folder" | bootstrap a new project | [Recipe 1](#recipe-1-set-up-a-new-project-from-scratch) |
-| "declare manuscript home", "wire the AGENTS.md", "link the code repo" | bootstrap with `--manuscript-*` flags | [Recipe 2](#recipe-2-declare-a-manuscript-home-on-an-existing-project) |
+| "declare manuscript home", "wire the AGENTS.md", "link the workfile folder" | bootstrap with `--manuscript-*` flags | [Recipe 2](#recipe-2-declare-a-manuscript-home-on-an-existing-project) |
 | "re-bootstrap", "refresh projects.json", "switch manuscript access" | re-run bootstrap (idempotent) | [Recipe 3](#recipe-3-re-bootstrap-after-changing-manuscript-access) |
 | "recover from bad access", "switch from unavailable to authoritative" | re-run bootstrap with new `--access` | [Recipe 4](#recipe-4-recover-from-a-bad-access-value) |
 | "log this", "record this meeting", "log advisor feedback", "record analysis finding", "log this decision" | `bootstrap-academic-pm.mjs --action log` | [Recipe 7](#recipe-7-log-a-session-of-work) |
@@ -54,14 +54,14 @@ Expected: `Status: PASS`, `Errors: 0`, `Warnings: 0`.
 
 ## Recipe 2: Declare a manuscript home on an existing project
 
-Scenario: you've been working in a paper repo (`~/Code/Paper1/`) with `.tex`, `.R`, and figures. Now you want the PM agent to know about it and to wire the repo's `AGENTS.md` so any coding or writing agent that opens the repo gets routed back to the PM folder.
+Scenario: you've been working in a paper workfile folder (`~/Code/Paper1/`) with `.tex`, `.R`, and figures. Now you want the PM agent to know about it and to wire the folder's `AGENTS.md` so any coding or writing agent that opens the folder gets routed back to the PM folder.
 
 ```bash
 PROJ=Paper1
 PM="/path/to/Obsidian Vaults/<vault>/Research Projects/$PROJ"
 REPO="/path/to/Paper1"
 
-# In production, REPO is a real git repo. Bootstrap will:
+# In production, REPO can be a git repo or a plain local folder. Bootstrap will:
 #   - update projects.json with manuscript_home / manuscript_kind / manuscript_access
 #   - create or update <REPO>/AGENTS.md with a managed "## Academic PM folder" section
 #     bounded by <!-- academic-project-management:section:start --> / :end --> markers
@@ -93,14 +93,13 @@ If the PM folder is renamed or moved, the path inside `<REPO>/AGENTS.md` will di
 
 ## Recipe 3: Re-bootstrap after changing manuscript access
 
-Scenario: you previously declared the manuscript home with `--manuscript-access authoritative`. Now you want to switch to `read-only` (or `none`) because you've handed the repo off to a collaborator and should not write to their AGENTS.md anymore.
+Scenario: you previously declared the manuscript home with `--manuscript-access authoritative`. Now you want to switch to `read-only` (or `none`) because you've handed the workfile folder off to a collaborator and should not write to their AGENTS.md anymore.
 
 ```bash
 # Re-run with the new access value. The bootstrap script will:
 #   - update projects.json: manuscript_access changes from "authoritative" to "read-only"
-#   - detect the existing AGENTS.md section and update its "access `read-only`" line in place
+#   - skip writing AGENTS.md because read-only access forbids manuscript-home edits
 #   - leave all other manuscript_home and manuscript_kind fields unchanged
-#   - preserve any user content outside the marker block
 node $SKILL_DIR/scripts/bootstrap-academic-pm.mjs \
   --project "$PROJ" \
   --pm-folder "$PM" \
@@ -112,7 +111,7 @@ node $SKILL_DIR/scripts/bootstrap-academic-pm.mjs \
   --manuscript-access read-only
 ```
 
-After this, the bootstrap script's `writeManuscriptHomeAgentsMd()` short-circuits (`manuscript_access === "read-only"` → skip the write). But the existing managed section is still updated to reflect the new `read-only` value because the file already exists and the access change is part of the metadata. To stop touching `<REPO>/AGENTS.md` entirely on future re-bootstraps, use `--manuscript-access none`.
+After this, the bootstrap script's `writeManuscriptHomeAgentsMd()` short-circuits (`manuscript_access === "read-only"` → skip the write). To stop touching `<REPO>/AGENTS.md` entirely on future re-bootstraps, use `--manuscript-access none`.
 
 To verify nothing was lost:
 
@@ -168,6 +167,7 @@ The test covers:
 - T7 validator PASS on fresh scaffold
 - T8 validator FAIL on missing required file
 - T9 `--manuscript-access read-only` skips AGENTS.md write
+- T9b-d local-folder AGENTS.md creation, idempotency, and validator enforcement
 - T10 re-bootstrap preserves user edits in every required file
 - T11 projects.json schema after bootstrap
 - T12 repair adds missing subfolder/notes entries to lane indexes

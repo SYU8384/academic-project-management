@@ -95,6 +95,10 @@ function validate(folder) {
   return run("node", [CHECK, "--path", folder, "--json"]);
 }
 
+function validateProject(project, config, opts = {}) {
+  return run("node", [CHECK, "--project", project, "--config", config, "--json"], opts);
+}
+
 // ---------------------------------------------------------------------------
 
 console.log("academic-project-management self-test\n");
@@ -272,6 +276,58 @@ step("T9 bootstrap with --manuscript-access read-only skips AGENTS.md", () => {
     "AGENTS.md should NOT be written when manuscript_access=read-only");
   const cfg = JSON.parse(fs.readFileSync(path.join(pm9, "projects.json"), "utf8"));
   assertEqual(cfg.projects.T9Project.manuscript_access, "read-only", "manuscript_access not recorded");
+});
+
+// Test 9b: authoritative local-folder manuscript homes also receive AGENTS.md.
+const pm9b = freshWorkdir("local-folder-agents");
+const folder9b = freshWorkdir("local-folder-agents-home");
+const config9b = path.join(pm9b, "projects.json");
+step("T9b bootstrap creates AGENTS.md for authoritative local-folder", () => {
+  bootstrap([
+    "--project", "T9BProject", "--pm-folder", pm9b, "--phase", "analysis",
+    "--notes", "T9B", "--config", config9b,
+    "--manuscript-home", folder9b, "--manuscript-kind", "local-folder",
+    "--manuscript-access", "authoritative",
+  ]);
+  const agentsPath = path.join(folder9b, "AGENTS.md");
+  assert(fs.existsSync(agentsPath), "AGENTS.md should be created in local-folder manuscript home");
+  const content = fs.readFileSync(agentsPath, "utf8");
+  assert(content.includes("<!-- academic-project-management:section:start -->"), "missing start marker");
+  assert(content.includes("<!-- academic-project-management:section:end -->"), "missing end marker");
+  assert(content.includes(pm9b), "AGENTS.md should reference pm_folder path");
+  const report = JSON.parse(validateProject("T9BProject", config9b).stdout);
+  assertEqual(report.status, "PASS", "validator should PASS with local-folder AGENTS.md present");
+});
+
+// Test 9c: re-bootstrap on local-folder replaces the managed section in place.
+step("T9c re-bootstrap replaces local-folder AGENTS.md managed section", () => {
+  const agentsPath = path.join(folder9b, "AGENTS.md");
+  const before = fs.readFileSync(agentsPath, "utf8");
+  fs.writeFileSync(agentsPath, `# USER PREFIX\n\n${before}\n# USER SUFFIX\n`);
+  bootstrap([
+    "--project", "T9BProject", "--pm-folder", pm9b, "--phase", "analysis",
+    "--notes", "T9B", "--config", config9b,
+    "--manuscript-home", folder9b, "--manuscript-kind", "local-folder",
+    "--manuscript-access", "authoritative",
+  ]);
+  const after = fs.readFileSync(agentsPath, "utf8");
+  assert(after.includes("# USER PREFIX"), "user prefix content was lost");
+  assert(after.includes("# USER SUFFIX"), "user suffix content was lost");
+  const starts = (after.match(/academic-project-management:section:start/g) || []).length;
+  const ends = (after.match(/academic-project-management:section:end/g) || []).length;
+  assertEqual(starts, 1, "expected exactly one start marker after re-bootstrap");
+  assertEqual(ends, 1, "expected exactly one end marker after re-bootstrap");
+});
+
+// Test 9d: validator requires AGENTS.md for authoritative local-folder homes.
+step("T9d validator fails when authoritative local-folder AGENTS.md is missing", () => {
+  fs.unlinkSync(path.join(folder9b, "AGENTS.md"));
+  const result = validateProject("T9BProject", config9b, { expectFail: true });
+  assert(result.status !== 0, "validator should exit non-zero when local-folder AGENTS.md is missing");
+  const report = JSON.parse(result.stdout);
+  assertEqual(report.status, "FAIL", "validator should FAIL when local-folder AGENTS.md is missing");
+  assert(report.errors.some(e => /Missing manuscript-home AGENTS\.md/.test(e)),
+    `error should mention missing AGENTS.md; got: ${JSON.stringify(report.errors)}`);
 });
 
 // Test 10: round-trip preservation. Mutate every required file with distinctive

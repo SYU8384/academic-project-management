@@ -42,7 +42,7 @@ When you say **"set up this project"**, the agent will ask:
    - `revision` — Addressing reviewer comments
    - `submission` — Preparing submission materials
    - `published` — Paper published, maintenance mode
-4. **Manuscript home** (optional) — path to your LaTeX/code repo
+4. **Manuscript home** (optional) — path to your LaTeX/code workfile folder
 5. **Confirmation** — agent shows summary, you approve before anything is created
 
 The agent then runs the bootstrap script and reports what was created.
@@ -66,7 +66,7 @@ Source registries, dataset provenance, measurement definitions, and data risks g
 
 ### 5. Declare the manuscript home and wire AGENTS.md
 
-When the project has a manuscript + analysis-code folder, declare it during setup or re-bootstrap with the manuscript home path. The bootstrap script appends or refreshes a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at this PM folder.
+When the project has a manuscript + analysis-code folder, declare it during setup or re-bootstrap with the manuscript home path. The bootstrap script appends or refreshes a managed `## Academic PM folder` section in `<manuscript_home>/AGENTS.md` that routes both the LaTeX-writing agent and the analysis-coding agent at this PM folder. This applies to authoritative git repos and authoritative local workfile folders.
 
 ## Default Paper Pipeline
 
@@ -97,11 +97,11 @@ Each lane has a `<lane>/<lane>.md` folder note with an Obsidian-compatible index
 | Brief chronological completed-work logs | `history/` |
 | Superseded notes, old plans, retired drafts | `archive/` |
 | Manuscript source, analysis code, figures, configs, replication artifacts | `<manuscript_home>` (declared in `projects.json`) |
-| Coding/writing-agent routing contract (when `manuscript_kind = git-repo`) | `<manuscript_home>/AGENTS.md` (`## Academic PM folder` section) |
+| Coding/writing-agent routing contract (when `manuscript_kind = git-repo` or `local-folder` and access is authoritative) | `<manuscript_home>/AGENTS.md` (`## Academic PM folder` section) |
 
 Always read the project `README.md` first. If it defines different routing, it wins over this generic map.
 
-The PM folder is for research state; the manuscript home is for executable artifacts. When the manuscript home is a git repo, its `AGENTS.md` is the entry point for any coding or writing agent; it defers to the PM folder's `README.md` and this skill for any state change. There is no separate code repo `AGENTS.md` — the manuscript and the code share one folder and one routing contract.
+The PM folder is for research state; the manuscript home is for executable artifacts. When the manuscript home is a declared authoritative workfile folder, its `AGENTS.md` is the entry point for any coding or writing agent; it defers to the PM folder's `README.md` and this skill for any state change. There is no separate code repo `AGENTS.md` — the manuscript and the code share one folder and one routing contract.
 
 ## Templates
 
@@ -177,7 +177,7 @@ https://raw.githubusercontent.com/SYU8384/academic-project-management/main/openc
 
 The instruction installs or updates the skill, verifies `projects.json`, configures the OpenClaw workspace `AGENTS.md`, audits registered PM folders and manuscript home `AGENTS.md` files, and asks approval before edits.
 
-**OpenClaw's unique role:** As the PM agent, OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript repo's `AGENTS.md`** (telling coding agents where research state lives). Users can brainstorm ideas, track literature, and manage meetings through OpenClaw, while coding agents focus on the manuscript repo.
+**OpenClaw's unique role:** As the PM agent, OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript/workfile folder's `AGENTS.md`** (telling coding agents where research state lives). Users can brainstorm ideas, track literature, and manage meetings through OpenClaw, while coding agents focus on the manuscript/workfile folder.
 
 ## Final Response
 
