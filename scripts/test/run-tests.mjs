@@ -783,6 +783,131 @@ step("T23 validator accepts CRLF frontmatter", () => {
   );
 });
 
+// Test 24: repair does not duplicate index entries when the index uses a
+// different link form (vault-relative) than the bare names repair derives,
+// and it dedupes pre-existing duplicates.
+const pm24 = freshWorkdir("repair-dedup");
+const config24 = path.join(pm24, "projects.json");
+const pm24Base = path.basename(pm24);
+step("T24 repair dedupes and preserves vault-relative index form", () => {
+  bootstrap([
+    "--project", "T24Project", "--pm-folder", pm24, "--phase", "analysis",
+    "--notes", "T24", "--config", config24,
+  ]);
+  // Create an analysis note and reference it from the index in vault-relative
+  // form (mimicking the QCA convention), plus a duplicate bare line.
+  fs.writeFileSync(
+    path.join(pm24, "analysis/regression.md"),
+    `---\ntitle: regression\ncreated: 2026-08-05\nupdated: 2026-08-05\nlast_reviewed: 2026-08-05\npageType: analysis\nstatus: active\nowner: researcher\n---\n# regression\n`,
+  );
+  const analysisPath = path.join(pm24, "analysis/analysis.md");
+  const text = fs.readFileSync(analysisPath, "utf8");
+  fs.writeFileSync(
+    analysisPath,
+    text.replace(
+      "## Notes\n\n*(no items)*",
+      `## Notes\n\n- [[${pm24Base}/analysis/regression|regression]]\n- [[regression|regression]]`,
+    ),
+  );
+  // Add a second, genuinely missing note so repair has something to insert.
+  fs.writeFileSync(
+    path.join(pm24, "analysis/new-analysis.md"),
+    `---\ntitle: new-analysis\ncreated: 2026-08-05\nupdated: 2026-08-05\nlast_reviewed: 2026-08-05\npageType: analysis\nstatus: active\nowner: researcher\n---\n# new-analysis\n`,
+  );
+  bootstrap([
+    "--project", "T24Project", "--pm-folder", pm24,
+    "--config", config24, "--action", "repair",
+  ]);
+  const after = fs.readFileSync(analysisPath, "utf8");
+  const lines = after.split("\n").filter((l) => /^- \[\[/.test(l));
+  const labels = lines.map((l) => l.match(/\|([^|\]]+)\]\]/)[1]);
+  const regressionCount = labels.filter((l) => l === "regression").length;
+  assertEqual(regressionCount, 1, "repair should leave exactly one regression entry");
+  assert(
+    after.includes(`[[${pm24Base}/analysis/new-analysis|new-analysis]]`),
+    "repair should insert new notes in the vault-relative form",
+  );
+  assert(!after.includes("[[new-analysis|new-analysis]]"),
+    "repair must not insert bare-form notes when index uses vault-relative form");
+  // Repair again: idempotent, no further changes.
+  bootstrap([
+    "--project", "T24Project", "--pm-folder", pm24,
+    "--config", config24, "--action", "repair",
+  ]);
+  const after2 = fs.readFileSync(analysisPath, "utf8");
+  assertEqual(after2, after, "re-repair should be a no-op on the index");
+});
+
+// Test 25: --action log does not re-insert an entry label that already exists
+// in the index (dedup guard in appendMissingToIndex).
+const pm25 = freshWorkdir("log-dedup");
+const config25 = path.join(pm25, "projects.json");
+step("T25 log does not duplicate existing index labels", () => {
+  bootstrap([
+    "--project", "T25Project", "--pm-folder", pm25, "--phase", "analysis",
+    "--notes", "T25", "--config", config25,
+  ]);
+  fs.writeFileSync(
+    path.join(pm25, "analysis/touched25.md"),
+    `---\ntitle: touched25\ncreated: 2026-08-05\nupdated: 2026-08-05\nlast_reviewed: 2026-08-05\npageType: analysis\nstatus: active\nowner: researcher\n---\n# touched25\n`,
+  );
+  const args = [
+    "--project", "T25Project", "--pm-folder", pm25, "--config", config25,
+    "--action", "log", "--event", "Ran the 25th analysis", "--note", "analysis/touched25.md",
+  ];
+  bootstrap(args);
+  // The first log already added the entry label to the lane index. Log the
+  // same event again: it must not duplicate the already-present label.
+  const lanePath = path.join(pm25, "analysis/analysis.md");
+  const historyFiles = fs.readdirSync(path.join(pm25, "history"))
+    .filter((f) => f.endsWith(".md") && f !== "history.md");
+  const entryLabel = historyFiles.find((f) => f.includes("ran-the-25th-analysis")).replace(/\.md$/, "");
+  bootstrap(args);
+  const after = fs.readFileSync(lanePath, "utf8");
+  const labels = after.split("\n").filter((l) => /^- \[\[/.test(l))
+    .map((l) => l.match(/\|([^|\]]+)\]\]/)[1]);
+  const count = labels.filter((l) => l === entryLabel).length;
+  assertEqual(count, 1, "log should not duplicate an already-present index label");
+});
+
+// Test 26: repair does not re-insert entries whose index lines carry a
+// description suffix (`(per-paper notes)` / ` — synthesis`) — the suffix
+// must not prevent parseIndexBlock from seeing the label as present.
+const pm26 = freshWorkdir("repair-suffix");
+const config26 = path.join(pm26, "projects.json");
+const pm26Base = path.basename(pm26);
+step("T26 repair respects description-suffixed index entries", () => {
+  bootstrap([
+    "--project", "T26Project", "--pm-folder", pm26, "--phase", "analysis",
+    "--notes", "T26", "--config", config26,
+  ]);
+  const analysisPath = path.join(pm26, "analysis/analysis.md");
+  const text = fs.readFileSync(analysisPath, "utf8");
+  fs.writeFileSync(
+    analysisPath,
+    text.replace(
+      "## Notes\n\n*(no items)*",
+      `## Notes\n\n- [[${pm26Base}/analysis/regression|regression]] (main model)\n`,
+    ),
+  );
+  fs.writeFileSync(
+    path.join(pm26, "analysis/regression.md"),
+    `---\ntitle: regression\ncreated: 2026-08-05\nupdated: 2026-08-05\nlast_reviewed: 2026-08-05\npageType: analysis\nstatus: active\nowner: researcher\n---\n# regression\n`,
+  );
+  bootstrap([
+    "--project", "T26Project", "--pm-folder", pm26,
+    "--config", config26, "--action", "repair",
+  ]);
+  const after = fs.readFileSync(analysisPath, "utf8");
+  const lines = after.split("\n").filter((l) => /^- \[\[/.test(l));
+  const regressionLines = lines.filter((l) => l.includes("regression"));
+  assertEqual(regressionLines.length, 1, "repair must not duplicate a description-suffixed entry");
+  assert(
+    after.includes(`${pm26Base}/analysis/regression|regression]] (main model)`),
+    "existing description-suffixed entry should be preserved verbatim",
+  );
+});
+
 // ---------------------------------------------------------------------------
 
 console.log("");

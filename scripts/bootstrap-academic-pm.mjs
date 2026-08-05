@@ -352,6 +352,7 @@ const configPath = path.resolve(cli.config);
 const vaultRoot = cli.vaultRoot ? path.resolve(cli.vaultRoot) : path.dirname(pmFolder);
 const notes = cli.notes || `${project} academic research project.`;
 const eff = resolveEffectiveManuscript(configPath, project);
+const rootBase = path.basename(pmFolder);
 
 function ensureDir(abs) {
   if (fs.existsSync(abs)) {
@@ -663,7 +664,7 @@ function parseIndexBlock(block) {
     if (line === "## Subfolders") { current = "subfolders"; result.sectionHeaders.subfoldersStart = i; continue; }
     if (line === "## Notes") { current = "notes"; result.sectionHeaders.notesStart = i; continue; }
     if (current && /^-\s+\[\[/.test(line)) {
-      const m = line.match(/^-\s+\[\[([^\]|]+)\|([^\]]+)\]\](?:\s*-\s*(.*))?$/);
+      const m = line.match(/^-\s+\[\[([^\]|]+)\|([^\]]+)\]\](?:\s+(.*))?$/);
       if (m) {
         result[current].push({ target: m[1], label: m[2], desc: m[3] || "" });
       }
@@ -676,23 +677,106 @@ function formatItemLine({ target, label, desc }) {
   return `- [[${target}|${label}]]${desc ? ` - ${desc}` : ""}`;
 }
 
+// Longest common `/`-delimited path prefix across the *directories* of the
+// given item targets, or null when there is none (e.g. all targets are bare
+// names). The last segment of each target is the item's own basename and must
+// not participate in the prefix. Used to detect the dominant link form already
+// present in an index block.
+function commonPathPrefix(targets) {
+  if (targets.length === 0) return null;
+  const dirs = targets.map((t) => path.posix.dirname(t));
+  if (dirs.every((d) => d === ".")) return null;
+  const segs = dirs.map((d) => d.split("/"));
+  const first = segs[0];
+  const common = [];
+  for (let i = 0; i < first.length; i += 1) {
+    if (segs.every((s) => s[i] === first[i])) common.push(first[i]);
+    else break;
+  }
+  return common.length === 0 ? null : common.join("/");
+}
+
+// Render a missing item's target to match the link form already used in the
+// index section, so repair/log never mix forms (vault-relative vs bare) for
+// the same logical entry. `indexRel` is the posix path of the index note
+// relative to the PM root ("" for the root note).
+//
+// - Bare target `name`: same folder as the index → `<prefix>/<name>`.
+// - `./`/`../` target (e.g. `../history/x` from a lane index): resolve to a
+//   project-relative path, then prefix with the project-root vault prefix.
+// - Project-relative target (`history/x`): prefix with the project-root vault
+//   prefix.
+// - Already vault-relative: left untouched.
+function adoptIndexForm(item, existingItems, indexRel) {
+  const prefix = commonPathPrefix(existingItems.map((i) => i.target));
+  if (!prefix || prefix.split("/")[0] !== rootBase) return item.target;
+  const t = item.target;
+  if (t.startsWith(`${rootBase}/`)) return t;
+  const rootPrefix = indexRel && prefix.endsWith(`/${indexRel}`)
+    ? prefix.slice(0, -(indexRel.length + 1))
+    : prefix;
+  if (t.startsWith("./") || t.startsWith("../")) {
+    const projectRel = path.posix.normalize(path.posix.join(indexRel, t));
+    return `${rootPrefix}/${projectRel}`;
+  }
+  if (t.includes("/")) return `${rootPrefix}/${t}`;
+  return `${prefix}/${t}`;
+}
+
 // Detect drift: items in live filesystem that are missing from the index.
-// Returns a list of missing items, in filesystem order.
+// Returns a list of missing items, in filesystem order. Dedup comparison is
+// on the entry *label*, so an existing vault-relative entry
+// (`[[.../analysis/foo|foo]]`) suppresses a bare live name `foo` — a note
+// present in any link form is never inserted again.
 function detectMissingFolders(currentItems, liveFolders) {
-  const currentTargets = new Set(currentItems.map((i) => i.target));
-  return liveFolders.filter((name) => !currentTargets.has(`${name}/${name}`))
+  const present = new Set(currentItems.map((i) => i.label));
+  return liveFolders.filter((name) => !present.has(name))
     .map((name) => ({ target: `${name}/${name}`, label: name, desc: "" }));
 }
 
 function detectMissingNotes(currentItems, liveNotes) {
-  const currentTargets = new Set(currentItems.map((i) => i.target));
-  return liveNotes.filter((name) => !currentTargets.has(name))
+  const present = new Set(currentItems.map((i) => i.label));
+  return liveNotes.filter((name) => !present.has(name))
     .map((name) => ({ target: name, label: name, desc: "" }));
+}
+
+// Remove duplicate logical entries inside an index block (same label appearing
+// more than once, in any link form). Keeps the first occurrence and its
+// description; deterministic and insert/remove-safe. Returns the new text and
+// the count of removed lines.
+function dedupeIndexEntries(text) {
+  const startMarker = "<!-- vault-maintain:index:start -->";
+  const endMarker = "<!-- vault-maintain:index:end -->";
+  const startIdx = text.indexOf(startMarker);
+  const endIdx = text.indexOf(endMarker);
+  if (startIdx === -1 || endIdx === -1) return { text, removed: 0 };
+  const block = text.slice(startIdx + startMarker.length, endIdx);
+  const lines = block.split("\n");
+  const seen = new Set();
+  let removed = 0;
+  const out = [];
+  for (const line of lines) {
+    const m = line.match(/^-\s+\[\[([^\]|]+)\|([^\]]+)\]\]/);
+    if (m) {
+      const label = m[2];
+      if (seen.has(label)) {
+        removed += 1;
+        continue;
+      }
+      seen.add(label);
+    }
+    out.push(line);
+  }
+  if (removed === 0) return { text, removed: 0 };
+  return {
+    text: `${text.slice(0, startIdx + startMarker.length)}${out.join("\n")}${text.slice(endIdx)}`,
+    removed,
+  };
 }
 
 // Insert missing items into an existing index block. Only inserts; never
 // reorders, reformats, or removes anything. Returns { next, addedCount }.
-function insertMissingIntoBlock(block, kind, missingItems) {
+function insertMissingIntoBlock(block, kind, missingItems, indexRel) {
   if (missingItems.length === 0) return { next: block, addedCount: 0 };
   const parsed = parseIndexBlock(block);
   const header = kind === "subfolders" ? "## Subfolders" : "## Notes";
@@ -715,7 +799,10 @@ function insertMissingIntoBlock(block, kind, missingItems) {
   }
   // Find the "*(no items)*" line if present, replace it with the new items.
   const noItemsIdx = lines.indexOf("*(no items)*", headerLineIdx + 1);
-  const newLines = [...missingItems.map(formatItemLine)];
+  const newLines = missingItems.map((it) => ({
+    ...it,
+    target: adoptIndexForm(it, items, indexRel),
+  })).map(formatItemLine);
   let nextLines;
   if (noItemsIdx !== -1 && noItemsIdx < endLineIdx) {
     // Replace *(no items)* with the new items; preserve everything else.
@@ -737,7 +824,7 @@ function insertMissingIntoBlock(block, kind, missingItems) {
   return { next: nextLines.join("\n"), addedCount: missingItems.length };
 }
 
-function appendMissingToIndex(indexPath, kind, missingItems) {
+function appendMissingToIndex(indexPath, kind, missingItems, indexRel) {
   if (missingItems.length === 0) return 0;
   const text = fs.readFileSync(indexPath, "utf8");
   const startMarker = "<!-- vault-maintain:index:start -->";
@@ -746,7 +833,11 @@ function appendMissingToIndex(indexPath, kind, missingItems) {
   const endIdx = text.indexOf(endMarker);
   if (startIdx === -1 || endIdx === -1) return 0;
   const block = text.slice(startIdx + startMarker.length, endIdx);
-  const { next, addedCount } = insertMissingIntoBlock(block, kind, missingItems);
+  const parsed = parseIndexBlock(block);
+  const present = new Set(parsed[kind].map((i) => i.label));
+  const stillMissing = missingItems.filter((it) => !present.has(it.label));
+  if (stillMissing.length === 0) return 0;
+  const { next, addedCount } = insertMissingIntoBlock(block, kind, stillMissing, indexRel);
   if (addedCount === 0) return 0;
   const newText =
     text.slice(0, startIdx) +
@@ -805,11 +896,21 @@ function repairFolderIndexes() {
     const endIdx = text.indexOf("<!-- vault-maintain:index:end -->");
     if (startIdx === -1 || endIdx === -1) continue;
     const block = text.slice(startIdx, endIdx);
+    const dedup = dedupeIndexEntries(text);
+    if (dedup.removed > 0) {
+      if (!cli.dryRun) fs.writeFileSync(indexPath, dedup.text);
+      log(cli.dryRun ? "would dedupe" : "dedupe", indexPath, `removed ${dedup.removed} duplicate entries`);
+      findings.push({
+        kind: "index-dedup",
+        target: indexPath,
+        action: `removed ${dedup.removed} duplicate entries`,
+      });
+    }
     const parsed = parseIndexBlock(block);
     const missingFolders = detectMissingFolders(parsed.subfolders, listImmediateFolders(folderAbs));
     const missingNotes = detectMissingNotes(parsed.notes, listImmediateNotes(folderAbs, indexName));
-    const addedFolders = appendMissingToIndex(indexPath, "subfolders", missingFolders);
-    const addedNotes = appendMissingToIndex(indexPath, "notes", missingNotes);
+    const addedFolders = appendMissingToIndex(indexPath, "subfolders", missingFolders, folder);
+    const addedNotes = appendMissingToIndex(indexPath, "notes", missingNotes, folder);
     if (addedFolders > 0 || addedNotes > 0) {
       findings.push({
         kind: "folder-index",
@@ -832,14 +933,24 @@ function repairRootNoteIndexes() {
   const endIdx = text.indexOf("<!-- vault-maintain:index:end -->");
   if (startIdx === -1 || endIdx === -1) return findings;
   const block = text.slice(startIdx, endIdx);
+  const dedup = dedupeIndexEntries(text);
+  if (dedup.removed > 0) {
+    if (!cli.dryRun) fs.writeFileSync(indexPath, dedup.text);
+    log(cli.dryRun ? "would dedupe" : "dedupe", indexPath, `removed ${dedup.removed} duplicate entries`);
+    findings.push({
+      kind: "root-index-dedup",
+      target: indexPath,
+      action: `removed ${dedup.removed} duplicate entries`,
+    });
+  }
   const parsed = parseIndexBlock(block);
   const missingFolders = detectMissingFolders(parsed.subfolders, listImmediateFolders(pmFolder));
   // For notes, only known root notes (README, RESEARCH, CURRENT_STATUS) are
   // auto-listed. Other root-level .md files (user-added) are added with bare
   // names.
   const missingNotes = detectMissingNotes(parsed.notes, listImmediateNotes(pmFolder, indexName));
-  const addedFolders = appendMissingToIndex(indexPath, "subfolders", missingFolders);
-  const addedNotes = appendMissingToIndex(indexPath, "notes", missingNotes);
+  const addedFolders = appendMissingToIndex(indexPath, "subfolders", missingFolders, "");
+  const addedNotes = appendMissingToIndex(indexPath, "notes", missingNotes, "");
   if (addedFolders > 0 || addedNotes > 0) {
     findings.push({
       kind: "root-index",
@@ -1085,7 +1196,7 @@ function actionLog() {
     const entryLabel = entryName.replace(/\.md$/, "");
     appendMissingToIndex(historyIndexPath, "notes", [
       { target: `history/${entryLabel}`, label: entryLabel, desc: cli.logEvent },
-    ]);
+    ], "history");
   } else {
     log("skip", historyIndexPath, "history folder note missing (run repair to recreate)");
   }
@@ -1097,7 +1208,7 @@ function actionLog() {
       const entryLabel = entryName.replace(/\.md$/, "");
       appendMissingToIndex(laneIndexPath, "notes", [
         { target: `../history/${entryLabel}`, label: entryLabel, desc: cli.logEvent },
-      ]);
+      ], lane);
     }
   }
 
