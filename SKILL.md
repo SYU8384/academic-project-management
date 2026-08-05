@@ -18,7 +18,8 @@ Say any of these phrases and the agent will handle the workflow interactively:
 | **"set up this project"**, **"setup this project"**, **"bootstrap my paper"**, **"initialize the PM folder"** | Guided setup | Asks for project name, PM folder path, research phase, and optional manuscript home. Shows summary, asks confirmation, then bootstraps. |
 | **"log this"**, **"record analysis"**, **"I just finished..."**, **"I completed..."** | Log work | Asks for event description and affected notes. Creates history entry and updates CURRENT_STATUS.md. |
 | **"verify setup"**, **"check PM"**, **"audit"**, **"validate setup"** | Validate | Runs validator and reports findings (PM folder + manuscript home + AGENTS.md). |
-| **"repair PM"**, **"fix indexes"**, **"rebuild folder notes"** | Repair drift | Runs repair action, shows what will be fixed, asks confirmation. |
+| **"repair PM"**, **"fix indexes"**, **"rebuild folder notes"** | Repair drift | Runs repair action, shows what will be fixed, asks confirmation. Also refreshes the manuscript-home `AGENTS.md` section from `projects.json`. |
+| **"sync AGENTS.md"**, **"backfill AGENTS.md"**, **"AGENTS.md is missing/stale"** | Sync AGENTS.md | Runs `scripts/sync-agents-section.mjs` to re-render the manuscript-home `AGENTS.md` managed section from `projects.json` — no bootstrap flags needed. |
 | **"set up OpenClaw PM"**, **"OpenClaw academic PM"** | OpenClaw setup | Displays the copy-paste prompt for OpenClaw workspace configuration. |
 
 The agent handles the details — you don't need to remember script paths or flags.
@@ -145,7 +146,7 @@ Validate (PM folder, projects.json, manuscript home, and AGENTS.md in one pass):
 node <skill_dir>/scripts/check-academic-pm.mjs --project <ProjectName>
 ```
 
-Repair structural drift (missing folder notes, stale indexes):
+Repair structural drift (missing folder notes, stale indexes, missing or stale manuscript-home `AGENTS.md` section):
 
 ```bash
 node <skill_dir>/scripts/bootstrap-academic-pm.mjs \
@@ -153,6 +154,14 @@ node <skill_dir>/scripts/bootstrap-academic-pm.mjs \
   [--config <path>] \
   --action repair [--dry-run]
 ```
+
+Sync the manuscript-home `AGENTS.md` managed section from `projects.json` (backfill or heal drift without re-running bootstrap; omit `--project` for all projects):
+
+```bash
+node <skill_dir>/scripts/sync-agents-section.mjs [--project <ProjectName>] [--config <path>] [--dry-run]
+```
+
+Re-running bootstrap without `--manuscript-home` preserves the `manuscript_*` values already in `projects.json`; pass `--no-manuscript-home` to clear them explicitly.
 
 Log a session of work (updates history and CURRENT_STATUS.md):
 

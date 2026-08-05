@@ -291,9 +291,20 @@ Behavior:
 - If `<manuscript_home>/AGENTS.md` does not exist and `manuscript_kind = git-repo|local-folder` and `manuscript_access = authoritative`, it is created with the managed section.
 - If it exists but has no managed markers, the section is appended below the existing content.
 - If it exists and has managed markers, the section between the markers is replaced in place. Anything outside the markers is preserved verbatim.
+- Re-running bootstrap without `--manuscript-home` preserves the `manuscript_*` values already registered in `projects.json` (and refreshes the `AGENTS.md` section from them). Pass `--no-manuscript-home` to clear the registered manuscript home explicitly.
 - `--no-agents-md` skips the file write entirely (the `manuscript_*` fields are still recorded in `projects.json`).
 - `--manuscript-access read-only|none` skips the file write without removing the field.
 - `--manuscript-kind null` records the field as null and skips the file write.
+
+### Sync / backfill
+
+`scripts/sync-agents-section.mjs` re-renders the managed section from `projects.json` and the current template without any bootstrap flags:
+
+```bash
+node <skill_dir>/scripts/sync-agents-section.mjs [--project <ProjectName>] [--config <path>] [--dry-run]
+```
+
+Use it to backfill projects registered before a template or feature change (for example, local-folder `AGENTS.md` support) or to heal drift the validator reports. It skips projects with no `manuscript_home`, unmanaged kinds, or `read-only|none` access, and fails on missing manuscript-home directories. `bootstrap --action repair` runs the same refresh for one project as part of its drift repair.
 
 ### Validation
 

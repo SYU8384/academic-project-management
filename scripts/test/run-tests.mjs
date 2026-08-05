@@ -28,6 +28,7 @@ import os from "node:os";
 const SKILL_DIR = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 const BOOTSTRAP = path.join(SKILL_DIR, "scripts", "bootstrap-academic-pm.mjs");
 const CHECK = path.join(SKILL_DIR, "scripts", "check-academic-pm.mjs");
+const SYNC = path.join(SKILL_DIR, "scripts", "sync-agents-section.mjs");
 
 const TMP_ROOT = path.join(os.tmpdir(), "opencode");
 fs.mkdirSync(TMP_ROOT, { recursive: true });
@@ -642,6 +643,143 @@ step("T18 --action log errors when --event is missing", () => {
   assert(
     /Missing required --event/.test(result.stderr || result.stdout || ""),
     `expected error message about missing --event; got: ${result.stderr || result.stdout}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+
+// Test 19: re-bootstrap without --manuscript-home preserves the manuscript_*
+// values already in projects.json instead of wiping them.
+const pm19 = freshWorkdir("preserve-manuscript");
+const repo19 = makeRepo("preserve-manuscript-home");
+const config19 = path.join(pm19, "projects.json");
+step("T19 re-bootstrap without --manuscript-home preserves registered manuscript home", () => {
+  bootstrap([
+    "--project", "T19Project", "--pm-folder", pm19, "--phase", "analysis",
+    "--notes", "T19", "--config", config19,
+    "--manuscript-home", repo19, "--manuscript-kind", "git-repo",
+    "--manuscript-access", "authoritative",
+  ]);
+  // Re-run without any manuscript flags (the old behavior erased them).
+  bootstrap([
+    "--project", "T19Project", "--pm-folder", pm19, "--phase", "writing",
+    "--notes", "T19", "--config", config19,
+  ]);
+  const cfg = JSON.parse(fs.readFileSync(config19, "utf8"));
+  assertEqual(cfg.projects.T19Project.manuscript_home, path.resolve(repo19), "manuscript_home preserved");
+  assertEqual(cfg.projects.T19Project.manuscript_kind, "git-repo", "manuscript_kind preserved");
+  assertEqual(cfg.projects.T19Project.manuscript_access, "authoritative", "manuscript_access preserved");
+  // Explicit --no-manuscript-home still clears.
+  bootstrap([
+    "--project", "T19Project", "--pm-folder", pm19, "--phase", "writing",
+    "--notes", "T19", "--config", config19, "--no-manuscript-home",
+  ]);
+  const cleared = JSON.parse(fs.readFileSync(config19, "utf8"));
+  assertEqual(cleared.projects.T19Project.manuscript_home, "", "--no-manuscript-home clears home");
+  assertEqual(cleared.projects.T19Project.manuscript_kind, "null", "--no-manuscript-home clears kind");
+});
+
+// Test 20: sync-agents-section.mjs backfills a missing manuscript-home
+// AGENTS.md from projects.json alone, then is idempotent.
+const pm20 = freshWorkdir("sync-backfill");
+const repo20 = makeRepo("sync-backfill-home");
+const config20 = path.join(pm20, "projects.json");
+step("T20 sync-agents-section backfills AGENTS.md from projects.json", () => {
+  bootstrap([
+    "--project", "T20Project", "--pm-folder", pm20, "--phase", "analysis",
+    "--notes", "T20", "--config", config20,
+    "--manuscript-home", repo20, "--manuscript-kind", "git-repo",
+    "--manuscript-access", "authoritative", "--no-agents-md",
+  ]);
+  const agentsPath = path.join(repo20, "AGENTS.md");
+  assert(!fs.existsSync(agentsPath), "--no-agents-md should skip the initial AGENTS.md write");
+  const first = run("node", [SYNC, "--project", "T20Project", "--config", config20]);
+  assert(fs.existsSync(agentsPath), "sync should create the manuscript-home AGENTS.md");
+  const content = fs.readFileSync(agentsPath, "utf8");
+  assert(content.includes("<!-- academic-project-management:section:start -->"), "sync wrote the managed markers");
+  assert(content.includes(pm20), "sync section should reference the pm_folder path");
+  const second = run("node", [SYNC, "--project", "T20Project", "--config", config20]);
+  assert(second.stdout.includes("in-sync"), `re-sync should report in-sync; got: ${second.stdout}`);
+  const report = JSON.parse(validateProject("T20Project", config20).stdout);
+  assertEqual(report.status, "PASS", "validator should PASS after sync backfill");
+  return first.stdout.trim().split("\n").pop();
+});
+
+// Test 21: --action repair refreshes the manuscript-home AGENTS.md managed
+// section from projects.json (no manuscript CLI flags needed).
+const pm21 = freshWorkdir("repair-agents");
+const repo21 = makeRepo("repair-agents-home");
+const config21 = path.join(pm21, "projects.json");
+step("T21 repair recreates missing manuscript-home AGENTS.md", () => {
+  bootstrap([
+    "--project", "T21Project", "--pm-folder", pm21, "--phase", "analysis",
+    "--notes", "T21", "--config", config21,
+    "--manuscript-home", repo21, "--manuscript-kind", "git-repo",
+    "--manuscript-access", "authoritative",
+  ]);
+  const agentsPath = path.join(repo21, "AGENTS.md");
+  fs.unlinkSync(agentsPath);
+  bootstrap([
+    "--project", "T21Project", "--pm-folder", pm21,
+    "--config", config21, "--action", "repair",
+  ]);
+  assert(fs.existsSync(agentsPath), "repair should recreate the manuscript-home AGENTS.md");
+  const content = fs.readFileSync(agentsPath, "utf8");
+  assert(content.includes("<!-- academic-project-management:section:start -->"), "repair wrote the managed markers");
+  const report = JSON.parse(validateProject("T21Project", config21).stdout);
+  assertEqual(report.status, "PASS", "validator should PASS after repair refresh");
+});
+
+// Test 22: --action repair creates folder notes for nested subfolders that
+// are referenced by folder-note wikilinks, and leaves unreferenced nested
+// dirs (e.g. PDF holding dirs) untouched.
+const pm22 = freshWorkdir("repair-nested");
+const config22 = path.join(pm22, "projects.json");
+step("T22 repair creates referenced nested folder notes only", () => {
+  bootstrap([
+    "--project", "T22Project", "--pm-folder", pm22, "--phase", "analysis",
+    "--notes", "T22", "--config", config22,
+  ]);
+  fs.mkdirSync(path.join(pm22, "analysis/replication"), { recursive: true });
+  fs.mkdirSync(path.join(pm22, "analysis/raw-pdfs"), { recursive: true });
+  fs.writeFileSync(
+    path.join(pm22, "analysis/replication/run-01.md"),
+    `---\ntitle: run-01\ncreated: 2026-08-05\nupdated: 2026-08-05\nlast_reviewed: 2026-08-05\npageType: analysis\nstatus: active\nowner: researcher\n---\n# run-01\n\nBack to [[../replication|replication]].\n`,
+  );
+  fs.appendFileSync(
+    path.join(pm22, "analysis/analysis.md"),
+    `\n- [[analysis/replication/replication|replication]]\n`,
+  );
+  bootstrap([
+    "--project", "T22Project", "--pm-folder", pm22,
+    "--config", config22, "--action", "repair",
+  ]);
+  const notePath = path.join(pm22, "analysis/replication/replication.md");
+  assert(fs.existsSync(notePath), "repair should create the referenced nested folder note");
+  const content = fs.readFileSync(notePath, "utf8");
+  assert(content.includes("<!-- vault-maintain:index:start -->"), "nested folder note missing index markers");
+  assert(!fs.existsSync(path.join(pm22, "analysis/raw-pdfs/raw-pdfs.md")),
+    "repair must not create folder notes for unreferenced nested dirs");
+  const report = JSON.parse(validateProject("T22Project", config22).stdout);
+  assertEqual(report.status, "PASS", "validator should PASS after nested folder-note repair");
+});
+
+// Test 23: validator accepts CRLF frontmatter fences (Windows/OneDrive
+// vaults) instead of reporting "Missing YAML frontmatter".
+const pm23 = freshWorkdir("crlf-frontmatter");
+const config23 = path.join(pm23, "projects.json");
+step("T23 validator accepts CRLF frontmatter", () => {
+  bootstrap([
+    "--project", "T23Project", "--pm-folder", pm23, "--phase", "analysis",
+    "--notes", "T23", "--config", config23,
+  ]);
+  const statusPath = path.join(pm23, "CURRENT_STATUS.md");
+  const lf = fs.readFileSync(statusPath, "utf8");
+  fs.writeFileSync(statusPath, lf.replace(/\n/g, "\r\n"));
+  const report = JSON.parse(validateProject("T23Project", config23).stdout);
+  assert(
+    !report.warnings.some((w) => w.includes("CURRENT_STATUS.md")),
+    `CRLF CURRENT_STATUS.md should produce no warnings; got: ${JSON.stringify(report.warnings)}`,
   );
 });
 

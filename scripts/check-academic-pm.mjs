@@ -117,7 +117,8 @@ function resolveTarget(args) {
 }
 
 function hasFrontmatter(text) {
-  return text.startsWith("---\n") && text.indexOf("\n---", 4) !== -1;
+  const startsWithFence = text.startsWith("---\n") || text.startsWith("---\r\n");
+  return startsWithFence && text.indexOf("\n---", 4) !== -1;
 }
 
 function parseFrontmatter(text) {

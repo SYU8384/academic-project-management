@@ -5,6 +5,12 @@ import os from "node:os";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
+import {
+  isAgentsManaged,
+  renderAgentsSection,
+  upsertAgentsMd,
+} from "./lib/agents-section.mjs";
+
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.dirname(SCRIPT_DIR);
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".config", "academic-pm", "projects.json");
@@ -143,9 +149,13 @@ Actions:
   bootstrap (default) — scaffold a fresh PM folder or refresh projects.json
                         and the manuscript-home AGENTS.md section.
   repair              — detect structural drift (missing folder notes,
-                        out-of-date subfolders/notes indexes) and rewrite
+                        including nested subfolders referenced by
+                        folder-note wikilinks; out-of-date
+                        subfolders/notes indexes) and rewrite
                         the affected files in place. Does not move user
-                        notes between lanes.
+                        notes between lanes. Also refreshes the
+                        manuscript-home AGENTS.md managed section from
+                        projects.json (no manuscript flags needed).
   log                 — record a session of work. Generates a dated
                         history/YYYY-MM-DD-<slug>.md entry that links back
                         to each --note path, and updates the affected
@@ -153,7 +163,9 @@ Actions:
 
 Bootstrap re-runs: if the PM folder already has the standard scaffold, the
 script skips the scaffold step and only updates projects.json and the
-manuscript-home AGENTS.md section.
+manuscript-home AGENTS.md section. When --manuscript-home is omitted on a
+re-run, the manuscript_* values already in projects.json are preserved
+(pass --no-manuscript-home to clear them explicitly).
 
 For bootstrap: --phase is required, --notes is optional (default one-line
   summary is generated if omitted).
@@ -295,6 +307,27 @@ function log(action, target, detail = "") {
 
 const cli = parseArgs(process.argv);
 
+// Resolve the effective manuscript-home values for this run. When
+// --manuscript-home is not passed on a re-bootstrap, preserve the values
+// already registered in projects.json instead of wiping them. An explicit
+// --no-manuscript-home (empty string) still clears them.
+function resolveEffectiveManuscript(configPath, project) {
+  const eff = { home: cli.manuscriptHome, kind: cli.manuscriptKind, access: cli.manuscriptAccess };
+  if (cli.manuscriptHome !== null) return eff;
+  let existing = null;
+  try {
+    if (fs.existsSync(configPath)) {
+      existing = JSON.parse(fs.readFileSync(configPath, "utf8")).projects?.[project] ?? null;
+    }
+  } catch { /* unreadable config: fall through with CLI values */ }
+  if (existing?.manuscript_home) {
+    eff.home = existing.manuscript_home;
+    eff.kind = existing.manuscript_kind ?? cli.manuscriptKind;
+    eff.access = existing.manuscript_access ?? cli.manuscriptAccess;
+  }
+  return eff;
+}
+
 // Interactive mode for bootstrap when args are missing.
 if (cli.action === "bootstrap" && (!cli.project || !cli.pmFolder || !cli.phase)) {
   if (!process.stdin.isTTY) {
@@ -318,6 +351,7 @@ const pmFolder = path.resolve(cli.pmFolder);
 const configPath = path.resolve(cli.config);
 const vaultRoot = cli.vaultRoot ? path.resolve(cli.vaultRoot) : path.dirname(pmFolder);
 const notes = cli.notes || `${project} academic research project.`;
+const eff = resolveEffectiveManuscript(configPath, project);
 
 function ensureDir(abs) {
   if (fs.existsSync(abs)) {
@@ -357,21 +391,46 @@ function writeReplace(abs, content) {
   log(existed ? "update" : "write", abs);
 }
 
+// Canonical frontmatter shape, matching the generic `project-management`
+// skill. Field order matters for human readability:
+//   title, tags, pageType, created, owner, icon, iconColor,
+//   updated, last_reviewed, status
+// `extra` slots in at the end so callers can append (e.g. `aliases`,
+// project-specific tags, decision_type). When you need to inject
+// `icon` / `iconColor`, pass them via `extra` and they will be picked
+// up out-of-order — to keep them in their canonical slots, prefer the
+// dedicated `icon` / `iconColor` parameters below. The `tags` slot
+// follows the same rule; pass it via `extra.tags` to override the
+// default `[folder-note]`.
 function frontmatter(title, pageType, extra = {}) {
+  const {
+    icon = null,
+    iconColor = null,
+    tags = null,
+    ...rest
+  } = extra;
   const fields = {
     title: yaml(title),
+    tags,
+    pageType,
     created: cli.date,
+    owner: "researcher",
+    icon: icon ? JSON.stringify(icon) : null,
+    iconColor: iconColor ? JSON.stringify(iconColor) : null,
     updated: cli.date,
     last_reviewed: cli.date,
-    pageType,
     status: "active",
-    owner: "researcher",
-    ...extra,
+    ...rest,
   };
   const lines = ["---"];
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined || value === null || value === "") continue;
-    lines.push(`${key}: ${value}`);
+    if (Array.isArray(value)) {
+      lines.push(`${key}:`);
+      for (const item of value) lines.push(`  - ${item}`);
+    } else {
+      lines.push(`${key}: ${value}`);
+    }
   }
   lines.push("---");
   return `${lines.join("\n")}\n`;
@@ -475,10 +534,10 @@ function writeConfig() {
     access: cli.access,
     notes,
   };
-  if (cli.manuscriptHome) {
-    cfg.projects[project].manuscript_home = path.resolve(cli.manuscriptHome);
-    cfg.projects[project].manuscript_kind = cli.manuscriptKind;
-    cfg.projects[project].manuscript_access = cli.manuscriptAccess;
+  if (eff.home) {
+    cfg.projects[project].manuscript_home = path.resolve(eff.home);
+    cfg.projects[project].manuscript_kind = eff.kind;
+    cfg.projects[project].manuscript_access = eff.access;
   } else {
     cfg.projects[project].manuscript_home = "";
     cfg.projects[project].manuscript_kind = "null";
@@ -487,85 +546,32 @@ function writeConfig() {
   writeReplace(configPath, `${JSON.stringify(cfg, null, 2)}\n`);
 }
 
-function agentsMdSection() {
-  const templatePath = path.join(SKILL_DIR, "templates", "AGENTS_ACADEMIC_PM_SECTION.md");
-  let raw = fs.readFileSync(templatePath, "utf8");
-
-  if (cli.manuscriptKind === "null") {
-    raw = raw.replace(
-      "The paper artifact and analysis code live at `<manuscript_home>` (`<manuscript_kind>`, access `<manuscript_access>`). The PM folder's `README.md` wins for routing.",
-      "The PM folder is the whole project; there is no separate manuscript home.",
-    );
-  }
-
-  const manuscriptHomeResolved = cli.manuscriptHome ? path.resolve(cli.manuscriptHome) : "(no manuscript home)";
-  const manuscriptKindResolved = cli.manuscriptKind === "null" ? "null" : cli.manuscriptKind ?? "unknown";
-  const manuscriptAccessResolved = cli.manuscriptAccess ?? "authoritative";
-  return raw
-    .replace(/<pm_folder>/g, pmFolder)
-    .replace(/<skill_dir>/g, SKILL_DIR)
-    .replace(/<manuscript_home>/g, manuscriptHomeResolved)
-    .replace(/<manuscript_kind>/g, manuscriptKindResolved)
-    .replace(/<manuscript_access>/g, manuscriptAccessResolved);
-}
-
 function writeManuscriptHomeAgentsMd() {
   if (!cli.writeAgentsMd) {
     log("skip", "AGENTS.md", "--no-agents-md");
     return;
   }
-  if (!cli.manuscriptHome) {
-    log("skip", "AGENTS.md", "no --manuscript-home");
+  if (!eff.home) {
+    log("skip", "AGENTS.md", "no manuscript home (neither --manuscript-home nor projects.json)");
     return;
   }
-  if (cli.manuscriptAccess === "none" || cli.manuscriptAccess === "read-only") {
-    log("skip", "AGENTS.md", `manuscript_access=${cli.manuscriptAccess}`);
+  if (eff.access === "none" || eff.access === "read-only") {
+    log("skip", "AGENTS.md", `manuscript_access=${eff.access}`);
     return;
   }
-  const home = path.resolve(cli.manuscriptHome);
+  const home = path.resolve(eff.home);
   if (!fs.existsSync(home) || !fs.statSync(home).isDirectory()) {
     log("skip", "AGENTS.md", `manuscript home not found: ${home}`);
     return;
   }
-  const agentsPath = path.join(home, "AGENTS.md");
-  const section = agentsMdSection();
-  const block = `<!-- academic-project-management:section:start -->\n${section}\n<!-- academic-project-management:section:end -->\n`;
-
-  if (!fs.existsSync(agentsPath)) {
-    if (cli.dryRun) {
-      log("would write", agentsPath);
-      return;
-    }
-    fs.writeFileSync(agentsPath, `# ${project} agent guidance\n\n${block}`);
-    log("write", agentsPath);
-    return;
-  }
-
-  const existing = fs.readFileSync(agentsPath, "utf8");
-  const markerStart = "<!-- academic-project-management:section:start -->";
-  const markerEnd = "<!-- academic-project-management:section:end -->";
-  const startIdx = existing.indexOf(markerStart);
-  const endIdx = existing.indexOf(markerEnd);
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const before = existing.slice(0, startIdx);
-    const after = existing.slice(endIdx + markerEnd.length).replace(/^\n+/, "");
-    const next = `${before}${block}${after ? `\n${after}` : ""}`;
-    if (cli.dryRun) {
-      log("would update", agentsPath, "replace managed section");
-      return;
-    }
-    fs.writeFileSync(agentsPath, next);
-    log("update", agentsPath, "replace managed section");
-    return;
-  }
-
-  if (cli.dryRun) {
-    log("would update", agentsPath, "append managed section");
-    return;
-  }
-  const sep = existing.endsWith("\n") ? "\n" : "\n\n";
-  fs.writeFileSync(agentsPath, `${existing}${sep}${block}`);
-  log("update", agentsPath, "append managed section");
+  const section = renderAgentsSection({
+    skillDir: SKILL_DIR,
+    pmFolder,
+    manuscriptHome: eff.home,
+    manuscriptKind: eff.kind,
+    manuscriptAccess: eff.access,
+  });
+  upsertAgentsMd({ home, section, title: project, dryRun: cli.dryRun, logFn: log });
 }
 
 function updateCurrentStatusPhase() {
@@ -626,7 +632,10 @@ function scaffold() {
 //
 // The repair action detects structural drift and rewrites the affected files
 // in place. It does not move user notes between lanes (content-level routing
-// is human judgment) and does not modify the manuscript-home AGENTS.md section.
+// is human judgment). It also refreshes the manuscript-home AGENTS.md managed
+// section from projects.json — this is the backfill path for projects
+// registered before a template or feature change (e.g. local-folder AGENTS.md
+// support), since no CLI manuscript flags are needed.
 
 function listImmediateFolders(folderAbs) {
   if (!fs.existsSync(folderAbs)) return [];
@@ -841,14 +850,132 @@ function repairRootNoteIndexes() {
   return findings;
 }
 
+// Collect every folder-note path referenced by wikilinks in the PM folder.
+// A referenced path looks like `<dir>/<basename>` (e.g. a link to
+// `[[.../literature/paper-notes/paper-notes|paper-notes]]`). Targets are
+// normalized three ways, mirroring the validator's resolution: as-is
+// (PM-root-relative), vault-relative (cut through the PM folder basename),
+// and `./`/`../` resolved against the linking file's directory.
+function collectReferencedFolderNotePaths() {
+  const refs = new Set();
+  const rootBase = path.basename(pmFolder);
+  const marker = `${rootBase}/`;
+  const files = [];
+  (function walk(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue;
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else if (entry.isFile() && entry.name.endsWith(".md")) files.push(abs);
+    }
+  })(pmFolder);
+
+  for (const abs of files) {
+    const rel = path.relative(pmFolder, abs).split(path.sep).join("/");
+    const relDir = path.posix.dirname(rel);
+    const text = fs.readFileSync(abs, "utf8");
+    for (const m of text.matchAll(/\[\[([^\]]+)\]\]/g)) {
+      const noAlias = m[1].split("|")[0];
+      const t = noAlias.split("#")[0].split("^")[0].trim().replace(/\\/g, "/").replace(/\.md$/i, "");
+      if (!t) continue;
+      refs.add(t);
+      const markerIdx = t.lastIndexOf(marker);
+      if (markerIdx >= 0) refs.add(t.slice(markerIdx + marker.length));
+      if (t.startsWith("./") || t.startsWith("../")) {
+        refs.add(path.posix.normalize(path.posix.join(relDir, t)));
+      }
+    }
+  }
+  return refs;
+}
+
+function nestedFolderNoteBody(rel, name) {
+  const depth = rel.split("/").length;
+  const parentBase = path.posix.basename(path.posix.dirname(rel));
+  const projectPrefix = "../".repeat(depth);
+  return `${frontmatter(name, "index")}# ${name}\n\n> Notes in this folder.\n\n<!-- vault-maintain:index:start -->\n## Subfolders\n\n*(no items)*\n\n## Notes\n\n*(no items)*\n<!-- vault-maintain:index:end -->\n\n${nav([`../${parentBase}`, `Back to ${parentBase}`], [`${projectPrefix}${project}`, `Back to ${project}`])}`;
+}
+
+// Nested lane subfolders (e.g. literature/paper-notes/) are not covered by
+// the top-level lane repair above. Create a folder note for a nested dir
+// only when some note already links to it as `<rel>/<basename>` — the
+// reference gate keeps PDF holding dirs and unreferenced archive subdirs
+// untouched while healing exactly the drift that produces unresolved-link
+// validator warnings.
+function repairNestedFolderNotes() {
+  const findings = [];
+  const refs = collectReferencedFolderNotePaths();
+  const dirs = [];
+  (function walk(dir, rel) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name;
+      dirs.push(childRel);
+      walk(path.join(dir, entry.name), childRel);
+    }
+  })(pmFolder, "");
+
+  for (const rel of dirs) {
+    if (!rel.includes("/")) continue; // top-level lanes handled above
+    const name = path.posix.basename(rel);
+    const note = path.join(pmFolder, rel, `${name}.md`);
+    if (fs.existsSync(note)) continue;
+    if (!refs.has(`${rel}/${name}`)) continue;
+    findings.push({ kind: "missing-folder-note", target: note, action: "recreate-default (nested, referenced)" });
+    writeCreateOnly(note, nestedFolderNoteBody(rel, name));
+  }
+  return findings;
+}
+
+function repairManuscriptHomeAgentsMd() {
+  if (!cli.writeAgentsMd) {
+    log("skip", "AGENTS.md", "--no-agents-md");
+    return [];
+  }
+  let entry = null;
+  try {
+    if (fs.existsSync(configPath)) {
+      entry = JSON.parse(fs.readFileSync(configPath, "utf8")).projects?.[project] ?? null;
+    }
+  } catch { /* unreadable config: skip */ }
+  if (!entry?.manuscript_home) {
+    log("skip", "AGENTS.md", "no manuscript_home registered in projects.json");
+    return [];
+  }
+  if (!isAgentsManaged(entry)) {
+    log("skip", "AGENTS.md", `manuscript_kind=${entry.manuscript_kind} manuscript_access=${entry.manuscript_access}`);
+    return [];
+  }
+  const home = path.resolve(entry.manuscript_home);
+  if (!fs.existsSync(home) || !fs.statSync(home).isDirectory()) {
+    log("skip", "AGENTS.md", `manuscript home not found: ${home}`);
+    return [];
+  }
+  const section = renderAgentsSection({
+    skillDir: SKILL_DIR,
+    pmFolder,
+    manuscriptHome: entry.manuscript_home,
+    manuscriptKind: entry.manuscript_kind,
+    manuscriptAccess: entry.manuscript_access,
+  });
+  const agentsPath = path.join(home, "AGENTS.md");
+  const existed = fs.existsSync(agentsPath);
+  const result = upsertAgentsMd({ home, section, title: project, dryRun: cli.dryRun, logFn: log });
+  if (result === "in-sync") return [];
+  return [{ kind: "agents-md", target: agentsPath, action: existed ? "refreshed managed section" : "created with managed section" }];
+}
+
 function actionRepair() {
   if (!fs.existsSync(pmFolder) || !fs.statSync(pmFolder).isDirectory()) {
     throw new Error(`PM folder does not exist: ${pmFolder}`);
   }
   const findings = [
     ...repairMissingFolderNotes(),
+    ...repairNestedFolderNotes(),
     ...repairFolderIndexes(),
     ...repairRootNoteIndexes(),
+    ...repairManuscriptHomeAgentsMd(),
   ];
   if (findings.length === 0) {
     log("ok", "PM repair", "no drift detected");
@@ -1033,8 +1160,8 @@ console.log(cli.dryRun ? "# Academic PM bootstrap dry run complete" : "# Academi
 console.log(`Project: ${project}`);
 console.log(`PM folder: ${pmFolder}`);
 console.log(`Config: ${configPath}`);
-if (cli.manuscriptHome) {
-  console.log(`Manuscript home: ${path.resolve(cli.manuscriptHome)} (${cli.manuscriptKind}, ${cli.manuscriptAccess})`);
+if (eff.home) {
+  console.log(`Manuscript home: ${path.resolve(eff.home)} (${eff.kind}, ${eff.access})`);
 } else {
   console.log(`Manuscript home: (none)`);
 }
