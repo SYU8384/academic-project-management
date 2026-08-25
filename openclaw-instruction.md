@@ -47,6 +47,16 @@ When the user discusses academic projects:
 7. Ask user confirmation before creating new files or modifying existing notes
 ```
 
+Keep the block in sync with this template using the drift-check script:
+
+```bash
+node ~/.openclaw/skills/academic-project-management/scripts/sync-openclaw-apm-section.mjs --check    # drift table
+node ~/.openclaw/skills/academic-project-management/scripts/sync-openclaw-apm-section.mjs --apply    # update with confirmation
+node ~/.openclaw/skills/academic-project-management/scripts/sync-openclaw-apm-section.mjs --bootstrap <path>  # first-time insert
+```
+
+The block is fully managed: hand-edits inside it will be overwritten by `--apply` (stamp-based drift detection only notices changes if the stamp is also removed, so treat the block as read-only).
+
 ## 4. Audit Registered Projects
 
 For each project in `projects.json`:

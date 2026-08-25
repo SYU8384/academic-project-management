@@ -9,6 +9,7 @@
  *   - Manuscript-home AGENTS.md marker-block idempotency (append / replace-in-place)
  *   - Cross-field invariant enforcement (manuscript_kind vs manuscript_home)
  *   - Validator end-to-end (PASS, 0 errors on a fresh scaffold)
+ *   - OpenClaw workspace AGENTS.md section sync (bootstrap / drift check / apply)
  *
  * Usage:  node <skill_dir>/scripts/test/run-tests.mjs
  * Exits:  0 on full pass, 1 on any failure.
@@ -910,7 +911,59 @@ step("T26 repair respects description-suffixed index entries", () => {
 
 // ---------------------------------------------------------------------------
 
-console.log("");
+// Test 27: sync-openclaw-apm-section.mjs --bootstrap inserts the managed
+// `## Academic Project Management` block, and --check then reports IN_SYNC.
+const ws27 = freshWorkdir("oc-sync-bootstrap");
+const SYNC_OC = path.join(SKILL_DIR, "scripts", "sync-openclaw-apm-section.mjs");
+const ws27Agents = path.join(ws27, "AGENTS.md");
+step("T27 openclaw-apm sync bootstrap inserts block, then IN_SYNC", () => {
+  fs.writeFileSync(ws27Agents, "# My Workspace\n\nUser content.\n");
+  run("node", [SYNC_OC, "--bootstrap", ws27Agents, "--force"]);
+  const content = fs.readFileSync(ws27Agents, "utf8");
+  assert(content.includes("## Academic Project Management"), "bootstrap wrote the section heading");
+  assert(content.includes("pm-skill: skill_version="), "bootstrap wrote the stamp line");
+  assert(content.startsWith("# My Workspace"), "bootstrap preserved existing content");
+  const check = run("node", [SYNC_OC, "--check", "--workspace", ws27Agents]);
+  assert(check.stdout.includes("IN_SYNC"), `check after bootstrap should be IN_SYNC; got: ${check.stdout}`);
+});
+
+// Test 28: --check flags drift when the stamp is removed or corrupted, and
+// reports MISSING when the section is absent.
+const ws28 = freshWorkdir("oc-sync-drift");
+const ws28Agents = path.join(ws28, "AGENTS.md");
+step("T28 openclaw-apm sync --check detects UNSTAMPED / DRIFT_SHA / MISSING", () => {
+  fs.writeFileSync(ws28Agents, "# My Workspace\n\nNo section here.\n");
+  const missing = spawnSync("node", [SYNC_OC, "--check", "--workspace", ws28Agents], { encoding: "utf8" });
+  assertEqual(missing.status, 1, "MISSING workspace should exit 1");
+  assert(missing.stdout.includes("MISSING"), "check should report MISSING");
+  run("node", [SYNC_OC, "--bootstrap", ws28Agents, "--force"]);
+  const stamped = fs.readFileSync(ws28Agents, "utf8");
+  fs.writeFileSync(ws28Agents, stamped.split("\n").filter((l) => !l.includes("pm-skill:")).join("\n"));
+  const unstamped = spawnSync("node", [SYNC_OC, "--check", "--workspace", ws28Agents], { encoding: "utf8" });
+  assert(unstamped.stdout.includes("UNSTAMPED"), "removed stamp should report UNSTAMPED");
+  fs.writeFileSync(ws28Agents, stamped.replace(/pm_section_sha=\S+/, "pm_section_sha=deadbeef"));
+  const driftSha = spawnSync("node", [SYNC_OC, "--check", "--workspace", ws28Agents], { encoding: "utf8" });
+  assert(driftSha.stdout.includes("DRIFT_SHA"), "corrupted stamp sha should report DRIFT_SHA");
+});
+
+// Test 29: --apply --force restores a drifted block to the template and
+// preserves surrounding content.
+const ws29 = freshWorkdir("oc-sync-apply");
+const ws29Agents = path.join(ws29, "AGENTS.md");
+step("T29 openclaw-apm sync --apply --force heals drift, preserves content", () => {
+  fs.writeFileSync(ws29Agents, "# My Workspace\n\nBefore.\n\n## Academic Project Management\n\nStale hand-written block.\n");
+  const before = fs.readFileSync(ws29Agents, "utf8");
+  run("node", [SYNC_OC, "--apply", "--force", "--workspace", ws29Agents]);
+  const after = fs.readFileSync(ws29Agents, "utf8");
+  assert(!after.includes("Stale hand-written block"), "apply should replace the stale block");
+  assert(after.includes("pm-skill: skill_version="), "apply wrote the stamp");
+  assert(after.includes("Before."), "apply preserved content above the block");
+  const check = run("node", [SYNC_OC, "--check", "--workspace", ws29Agents]);
+  assert(check.stdout.includes("IN_SYNC"), `check after apply should be IN_SYNC; got: ${check.stdout}`);
+  assert(before.length !== 0, "sanity");
+});
+
+// ---------------------------------------------------------------------------
 const passed = results.filter(r => r.status === "PASS").length;
 const failed = results.filter(r => r.status === "FAIL").length;
 const totalMs = results.reduce((s, r) => s + r.ms, 0);

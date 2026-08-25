@@ -186,6 +186,8 @@ https://raw.githubusercontent.com/SYU8384/academic-project-management/main/openc
 
 The instruction installs or updates the skill, verifies `projects.json`, configures the OpenClaw workspace `AGENTS.md`, audits registered PM folders and manuscript home `AGENTS.md` files, and asks approval before edits.
 
+- Sync the OpenClaw workspace `AGENTS.md` `## Academic Project Management` block with the section-3 template in `openclaw-instruction.md`: `node <skill_dir>/scripts/sync-openclaw-apm-section.mjs --check` (drift table), `--apply` (with per-workspace confirmation; `--force` skips the prompt), or `--bootstrap <path>` (first-time insert). Discovery defaults to `~/.openclaw/workspace*/AGENTS.md`; pass `--workspace <path>` to limit scope.
+
 **OpenClaw's unique role:** As the PM agent, OpenClaw can write to **both** its own workspace `AGENTS.md` (telling itself where PM folders live) and the **manuscript/workfile folder's `AGENTS.md`** (telling coding agents where research state lives). Users can brainstorm ideas, track literature, and manage meetings through OpenClaw, while coding agents focus on the manuscript/workfile folder.
 
 ## Final Response
