@@ -1,7 +1,7 @@
 # Academic Project Management Skill
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Install with bash](https://img.shields.io/badge/install-bash-0f766e.svg)](#quick-start)
+[![Install with bash or PowerShell](https://img.shields.io/badge/install-bash%20%2F%20PowerShell-0f766e.svg)](#quick-start)
 [![Markdown PM folders](https://img.shields.io/badge/docs-Markdown%20%2B%20Obsidian-2563eb.svg)](#pm-folder-model)
 
 **A lab notebook that never forgets.** Your agent keeps research state — literature, evidence, analysis, writing, meetings, decisions, history — in sync as work happens, all in plain Markdown, in a folder you own.
@@ -19,7 +19,7 @@ Agents have no memory beyond the session, and academic memory decays in predicta
 - 📚 **Literature stays honest** — reading queue, paper notes, synthesis, and citation gaps live in `literature/`; evidence provenance and measurement definitions live in `evidence/`.
 - 🔗 **Two folders, one wire** — research state in the PM folder, LaTeX/code in the manuscript home; a managed `## Academic PM folder` section in the manuscript home's `AGENTS.md` routes coding and writing agents to the state.
 - 🌱 **Manuscript optional** — the PM folder works standalone for brainstorming, literature review, grant writing, and planning. Add a manuscript home when you're ready.
-- 🧹 **Self-cleaning** — the validator checks structure, indexes, wiki links, stale status, and AGENTS.md drift; repair fixes drift, and a sync script keeps both OpenClaw workspace and manuscript-home `AGENTS.md` sections current.
+- 🧹 **Self-cleaning** — the validator checks structure, indexes, wiki links, stale status, and AGENTS.md drift; repair fixes drift; sync scripts keep both OpenClaw workspace and manuscript-home `AGENTS.md` sections current; a close-out guard stops manuscript work from shipping without PM updates; a read-only reorg detector keeps a year of growth navigable.
 - 🔗 **Obsidian-optional** — as an Obsidian vault, every note is structured and interlinked. But the convention is just Markdown plus a small local `projects.json` registry; it works anywhere.
 
 ## 🤝 Plays well with academic-writer
@@ -44,7 +44,7 @@ The agent handles the rest — installing the skill, creating `~/.config/academi
 
 ### Path B — Coding agent on macOS / Linux / WSL / Git Bash
 
-For Codex, Claude, or another coding agent:
+Use this path for Codex, Claude, or another coding agent when your shell can run POSIX `bash`. These `curl | bash` commands do **not** run in native Windows PowerShell or `cmd.exe`; use [Path C](#path-c--coding-agent-on-native-windows-powershell) there.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.sh | bash
@@ -52,9 +52,21 @@ curl -fsSL https://raw.githubusercontent.com/SYU8384/academic-project-management
 
 With a TTY, the installer shows an interactive menu; without one, pass a target explicitly: `bash -s -- --target agents --yes`. Targets: `agents`, `codex`, `claude`, `openclaw`, or `--dest <path>`. Re-run the same command to update (default channel is the stable `v1` ref; `--channel main` for bleeding edge).
 
+### Path C — Coding agent on native Windows PowerShell
+
+Use this path from PowerShell 5.1 (Windows 10 default) or PowerShell 7+:
+
+```powershell
+$installer = Join-Path $env:TEMP "academic-project-management-install.ps1"
+Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/SYU8384/academic-project-management/main/install.ps1" -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Target agents -Yes
+```
+
+The installer needs `git` on PATH (ships with Git for Windows). The temp-file path keeps the command working even if PowerShell opens in `C:\WINDOWS\system32`; the process-scoped execution-policy bypass is only for this run. Targets are `agents` (`%USERPROFILE%\.agents\skills\academic-project-management`), `codex`, `claude`, `openclaw`, or `-Dest <skills-dir>` for a custom parent skills directory.
+
 ## 🎯 Triggers
 
-If you went through Path A (OpenClaw), the agent handles setup, repair, and logging autonomously — you don't need any of these. If you went through Path B, after install + first setup the project lives at `<pm_folder>` and `projects.json` lives at `~/.config/academic-pm/projects.json`. Restart your coding agent and say:
+If you went through Path A (OpenClaw), the agent handles setup, repair, and logging autonomously — you don't need any of these. If you went through Path B or Path C, after install + first setup the project lives at `<pm_folder>` and `projects.json` lives at `~/.config/academic-pm/projects.json`. Restart your coding agent and say:
 
 | Say | What happens |
 |---|---|
@@ -85,10 +97,10 @@ Academic projects have a **two-folder problem**: the PM folder holds research st
 | [`SKILL.md`](./SKILL.md) | Agent entry point: intents, triggers, workflows, routing map. |
 | [`REFERENCE.md`](./REFERENCE.md) | Deep reference: folder model, setup rules, validation, repair. |
 | [`EXAMPLES.md`](./EXAMPLES.md) | End-to-end recipes: bootstrap, log, repair, manuscript home. |
-| [`install.sh`](./install.sh) | Curl-friendly installer for agents, Codex, Claude, OpenClaw; rerun to update. |
+| [`install.sh`](./install.sh) / [`install.ps1`](./install.ps1) | Bash and native PowerShell installers; rerun to update. |
 | [`openclaw-instruction.md`](./openclaw-instruction.md) | Copy-paste instruction for bootstrapping an OpenClaw PM agent. |
-| [`scripts/`](./scripts/) | Dependency-free Node scripts: `bootstrap-academic-pm.mjs` (bootstrap/repair/log), `check-academic-pm.mjs` (validator), `sync-agents-section.mjs` (manuscript-home AGENTS.md), `sync-openclaw-apm-section.mjs` (OpenClaw workspace AGENTS.md). |
-| [`templates/`](./templates/) | Canonical templates for root files, lane notes, and AGENTS.md sections. |
+| [`scripts/`](./scripts/) | Dependency-free Node scripts: `bootstrap-academic-pm.mjs` (bootstrap/repair/log), `check-academic-pm.mjs` (validator), `check-academic-closeout.mjs` (session close-out guard), `check-reorg-candidates.mjs` (read-only reorg detector), `migrate.mjs` (versioned config/schema migrations), `sync-agents-section.mjs` (manuscript-home AGENTS.md), `sync-openclaw-apm-section.mjs` (OpenClaw workspace AGENTS.md), `check-academic-skill.mjs` (skill-repo self-check). |
+| [`templates/`](./templates/) | Canonical templates for root files, lane notes, meeting records, and AGENTS.md sections. |
 | [`scripts/test/`](./scripts/test/) | Self-test suite: `node scripts/test/run-tests.mjs`. |
 
 ## 📄 License

@@ -20,6 +20,9 @@ Say any of these phrases and the agent will handle the workflow interactively:
 | **"verify setup"**, **"check PM"**, **"audit"**, **"validate setup"** | Validate | Runs validator and reports findings (PM folder + manuscript home + AGENTS.md). |
 | **"repair PM"**, **"fix indexes"**, **"rebuild folder notes"** | Repair drift | Runs repair action, shows what will be fixed, asks confirmation. Also refreshes the manuscript-home `AGENTS.md` section from `projects.json`. |
 | **"sync AGENTS.md"**, **"backfill AGENTS.md"**, **"AGENTS.md is missing/stale"** | Sync AGENTS.md | Runs `scripts/sync-agents-section.mjs` to re-render the manuscript-home `AGENTS.md` managed section from `projects.json` — no bootstrap flags needed. |
+| **"close out"**, **"session close-out"**, **"did we log this work"** | Close-out guard | Runs `scripts/check-academic-closeout.mjs` to verify manuscript-home changes in this session came with matching `CURRENT_STATUS.md` / history updates. |
+| **"organize PM folder"**, **"tidy PM folder"**, **"PM spring cleaning"** | Reorganize | Runs `scripts/check-reorg-candidates.mjs` (read-only) and proposes an approval-gated merge/retire/archive plan from the detected signals. |
+| **"run migrations"**, **"backfill registry"**, **"migrate projects.json"** | Migrate | Runs `scripts/migrate.mjs` to apply pending versioned migrations (config/PM-folder schema backfills). Idempotent; ledger-recorded. |
 | **"set up OpenClaw PM"**, **"OpenClaw academic PM"** | OpenClaw setup | Displays the copy-paste prompt for OpenClaw workspace configuration. |
 
 The agent handles the details — you don't need to remember script paths or flags.
@@ -59,7 +62,7 @@ When you say **"log this"** or **"I just finished the regression analysis"**, th
 
 ### 3. Record an advisor meeting
 
-Put the note in `meetings/`, extract action items into `CURRENT_STATUS.md`, update `planning/`, `analysis/`, or `writing/` if feedback changes active work. Keep raw advisor feedback verbatim.
+Put the note in `meetings/` — start from `templates/meeting-record.md` (attendees, agenda, discussion notes, feedback, decisions, action items, follow-ups) — extract action items into `CURRENT_STATUS.md`, update `planning/`, `analysis/`, or `writing/` if feedback changes active work. Keep raw advisor feedback verbatim.
 
 ### 4. Track data or reproducibility work
 
@@ -109,7 +112,7 @@ The PM folder is for research state; the manuscript home is for executable artif
 The `templates/` directory holds the canonical source files for what the bootstrap script writes into a new PM folder. Each lane-specific template carries prompts (`## Reading Queue` for literature, `## Open Action Items` for meetings, `## Active Plans` for planning, etc.) that guide the user to fill in the right content.
 
 - **Read on every bootstrap** (the script uses these): `root-note.md` → `<Project>.md`, `README.md` → `README.md`, `RESEARCH.md` → `RESEARCH.md`, `CURRENT_STATUS.md` → `CURRENT_STATUS.md`, and the 8 lane templates (`literature.md`, `evidence.md`, `analysis.md`, `writing.md`, `meetings.md`, `planning.md`, `history.md`, `archive.md`) → their respective lane notes. `AGENTS_ACADEMIC_PM_SECTION.md` is the manuscript-home routing section, also written by the script.
-- **Documentation-only** (read by humans, not by the script): `folder-note.md` (an older lane-note factory, kept as a reference for what a lane note looks like), and `projects.template.json` (a reference of the `projects.json` schema).
+- **Documentation-only** (read by humans and agents, not seeded by the script): `folder-note.md` (an older lane-note factory, kept as a reference for what a lane note looks like), `meeting-record.md` (per-meeting note template applied when recording advisor/collaborator meetings — see Workflow 3), and `projects.template.json` (a reference of the `projects.json` schema).
 
 After bootstrap, all 12 created files (3 root files + `<Project>.md` + 8 lane notes) are **user-owned** — re-running the script never clobbers them.
 
@@ -162,6 +165,31 @@ node <skill_dir>/scripts/sync-agents-section.mjs [--project <ProjectName>] [--co
 ```
 
 Re-running bootstrap without `--manuscript-home` preserves the `manuscript_*` values already in `projects.json`; pass `--no-manuscript-home` to clear them explicitly.
+
+Close-out guard (run before signing off a manuscript-home work session; fails when committed/uncommitted manuscript changes lack a matching `CURRENT_STATUS.md` or same-day history update):
+
+```bash
+node <skill_dir>/scripts/check-academic-closeout.mjs \
+  [--project <ProjectName>] [--config <path>] \
+  [--manuscript-home <path>] [--since <ISO datetime>] \
+  [--allow-no-impact "<reason>"]
+```
+
+Detect reorganization candidates (read-only; tiny/stale/orphan notes, similar pairs, supersession hints, stale lane indexes, archive candidates; exit 0 always):
+
+```bash
+node <skill_dir>/scripts/check-reorg-candidates.mjs \
+  [--project <ProjectName> [--config <path>] | --path <pm-folder>] [--json]
+```
+
+Apply pending versioned migrations (config/schema backfills; idempotent, ledger-recorded):
+
+```bash
+node <skill_dir>/scripts/migrate.mjs \
+  [--project <ProjectName>] [--pm-folder <academic-pm-folder>] [--config <path>] \
+  [--list] [--dry-run] [--yes]
+```
+
 
 Log a session of work (updates history and CURRENT_STATUS.md):
 

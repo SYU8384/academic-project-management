@@ -2,6 +2,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
+
+import { findPendingMigrations } from "./lib/check-academic-pm-migrations.mjs";
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".config", "academic-pm", "projects.json");
 const REQUIRED_ROOT_FILES = ["README.md", "RESEARCH.md", "CURRENT_STATUS.md"];
@@ -479,6 +484,27 @@ function checkManuscriptHomeAgentsMd(report, manuscriptHome, manuscriptKind, man
   }
 }
 
+function checkPendingMigrations(report, target, args) {
+  report.pendingMigrations = [];
+  let pending;
+  try {
+    pending = findPendingMigrations(SCRIPT_DIR, {
+      pmFolder: target.root,
+      configPath: args.config ? path.resolve(args.config) : null,
+    });
+  } catch {
+    return;
+  }
+  report.pendingMigrations = pending.map((m) => m.id);
+  for (const migration of pending) {
+    addFinding(
+      report,
+      "warnings",
+      `Pending migration: ${migration.id} — run \`node ${path.join(SCRIPT_DIR, "migrate.mjs")} --pm-folder <pm-folder> --yes\` to apply`,
+    );
+  }
+}
+
 function validate(target, args) {
   const report = {
     root: target.root,
@@ -507,6 +533,7 @@ function validate(target, args) {
   checkHistorySize(report, target.root, args.historyWordLimit);
   checkManuscriptHome(report, target.manuscriptHome, target.manuscriptKind);
   checkManuscriptHomeAgentsMd(report, target.manuscriptHome, target.manuscriptKind, target.manuscriptAccess, target.root);
+  checkPendingMigrations(report, target, args);
 
   report.status = report.errors.length > 0 || (args.strict && report.warnings.length > 0) ? "FAIL" : "PASS";
   return report;

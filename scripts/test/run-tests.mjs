@@ -10,6 +10,8 @@
  *   - Cross-field invariant enforcement (manuscript_kind vs manuscript_home)
  *   - Validator end-to-end (PASS, 0 errors on a fresh scaffold)
  *   - OpenClaw workspace AGENTS.md section sync (bootstrap / drift check / apply)
+ *   - Skill-repo self-check, migrations backfill, close-out guard, reorg
+ *     detector, and install.ps1 static sanity
  *
  * Usage:  node <skill_dir>/scripts/test/run-tests.mjs
  * Exits:  0 on full pass, 1 on any failure.
@@ -961,6 +963,110 @@ step("T29 openclaw-apm sync --apply --force heals drift, preserves content", () 
   const check = run("node", [SYNC_OC, "--check", "--workspace", ws29Agents]);
   assert(check.stdout.includes("IN_SYNC"), `check after apply should be IN_SYNC; got: ${check.stdout}`);
   assert(before.length !== 0, "sanity");
+});
+
+// Test 30: check-academic-skill.mjs passes on the skill repo itself. This
+// pins doc/template/script consistency of the shipped skill.
+step("T30 check-academic-skill passes on the skill repo", () => {
+  const r = run("node", [path.join(SKILL_DIR, "scripts", "check-academic-skill.mjs")]);
+  assert(r.stdout.includes("PASS"), `skill self-check should PASS; got: ${r.stdout}`);
+});
+
+// Test 31: migrate.mjs backfills missing registry fields in projects.json,
+// and is idempotent on re-run.
+const pm31 = freshWorkdir("migrate");
+const config31 = path.join(pm31, "projects.json");
+const MIGRATE = path.join(SKILL_DIR, "scripts", "migrate.mjs");
+step("T31 migrate backfills manuscript defaults idempotently", () => {
+  const pmFolder = path.join(pm31, "pm");
+  fs.mkdirSync(pmFolder, { recursive: true });
+  fs.writeFileSync(config31, JSON.stringify({
+    projects: { LegacyPaper: { pm_folder: pmFolder, phase: "idea" } },
+  }, null, 2));
+  const first = run("node", [MIGRATE, "--config", config31, "--pm-folder", pmFolder, "--yes"]);
+  assert(!/error/i.test(first.stderr ?? ""), "migrate run should not error");
+  const cfg = JSON.parse(fs.readFileSync(config31, "utf8"));
+  const entry = cfg.projects.LegacyPaper;
+  assertEqual(entry.project_type, "paper", "project_type backfilled");
+  assertEqual(entry.manuscript_kind, "null", "manuscript_kind backfilled");
+  assertEqual(entry.manuscript_access, "authoritative", "manuscript_access backfilled");
+  const second = run("node", [MIGRATE, "--config", config31, "--pm-folder", pmFolder, "--yes"]);
+  assert(
+    /no applicable migrations/i.test(second.stdout),
+    `re-run should find nothing to do; got: ${second.stdout}`,
+  );
+});
+
+// Test 32: check-academic-closeout.mjs fails when manuscript-home work has
+// no matching PM update, and passes after CURRENT_STATUS.md is touched.
+const pm32 = freshWorkdir("closeout");
+const repo32 = makeRepo("closeout-home");
+const config32 = path.join(pm32, "projects.json");
+const CLOSEOUT = path.join(SKILL_DIR, "scripts", "check-academic-closeout.mjs");
+step("T32 closeout guard fails on missing PM update, passes after", () => {
+  bootstrap([
+    "--project", "T32Project", "--pm-folder", pm32, "--phase", "analysis",
+    "--notes", "T32", "--config", config32,
+    "--manuscript-home", repo32, "--manuscript-kind", "git-repo",
+    "--manuscript-access", "authoritative",
+  ]);
+  // New manuscript work after bootstrap: a committed code file.
+  fs.writeFileSync(path.join(repo32, "model.R"), "x <- 1\n");
+  run("git", ["-C", repo32, "add", "model.R"]);
+  run("git", ["-C", repo32, "commit", "-q", "-m", "add model"]);
+  // Backdate every PM-folder file to yesterday so only the manuscript commit
+  // is "since" the baseline; otherwise bootstrap's fresh scaffold counts as
+  // close-out evidence.
+  const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
+  const backdate = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) backdate(p);
+      else fs.utimesSync(p, yesterday, yesterday);
+    }
+  };
+  backdate(pm32);
+  fs.utimesSync(pm32, yesterday, yesterday);
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  const sinceISO = since.toISOString();
+  const stale = spawnSync("node", [CLOSEOUT, "--project", "T32Project", "--config", config32, "--since", sinceISO], { encoding: "utf8" });
+  assertEqual(stale.status, 1, `closeout should fail without PM update; stdout: ${stale.stdout}`);
+  const statusPath = path.join(pm32, "CURRENT_STATUS.md");
+  fs.appendFileSync(statusPath, "\n- logged model.R\n");
+  const ok = run("node", [CLOSEOUT, "--project", "T32Project", "--config", config32, "--since", sinceISO]);
+  return ok.stdout.trim().split("\n").pop();
+});
+
+// Test 33: check-reorg-candidates.mjs detects a tiny stub note, always
+// exits 0, and emits parseable --json.
+const pm33 = freshWorkdir("reorg");
+const config33 = path.join(pm33, "projects.json");
+const REORG = path.join(SKILL_DIR, "scripts", "check-reorg-candidates.mjs");
+step("T33 reorg detector flags tiny stub and emits JSON", () => {
+  bootstrap([
+    "--project", "T33Project", "--pm-folder", pm33, "--phase", "literature",
+    "--notes", "T33", "--config", config33,
+  ]);
+  fs.writeFileSync(
+    path.join(pm33, "literature/stub-paper.md"),
+    `---\ntitle: stub-paper\ncreated: 2026-08-05\nupdated: 2026-08-05\nlast_reviewed: 2026-08-05\npageType: literature\nstatus: active\nowner: researcher\n---\n# stub-paper\n\nTBD.\n`,
+  );
+  const human = run("node", [REORG, "--project", "T33Project", "--config", config33]);
+  assert(human.stdout.toLowerCase().includes("stub-paper"), `stub should be flagged; got: ${human.stdout}`);
+  const json = run("node", [REORG, "--project", "T33Project", "--config", config33, "--json"]);
+  JSON.parse(json.stdout);
+});
+
+// Test 34: install.ps1 exists, carries the academic identity, and has no
+// leftover project-management strings (pwsh is not available in CI).
+step("T34 install.ps1 static sanity", () => {
+  const ps1 = fs.readFileSync(path.join(SKILL_DIR, "install.ps1"), "utf8");
+  assert(ps1.includes("academic-project-management"), "ps1 references the academic skill name");
+  assert(/-Target/.test(ps1), "ps1 exposes -Target");
+  assert(/academic-pm/.test(ps1), "ps1 seeds the academic-pm config path");
+  assert(!/(?<!academic-)project-management-install/i.test(ps1), "no leftover PM installer identity");
+  assert(!/\.config[\\/]project-management/.test(ps1), "no leftover PM config path");
 });
 
 // ---------------------------------------------------------------------------
