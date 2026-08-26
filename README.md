@@ -75,8 +75,28 @@ If you went through Path A (OpenClaw), the agent handles setup, repair, and logg
 | `verify setup` / `check PM` | Runs the validator and reports findings without changing anything. |
 | `repair PM` / `fix indexes` | Detects drift, shows what will be fixed, asks confirmation. |
 | `set up OpenClaw PM` | Shows the copy-paste prompt for OpenClaw workspace setup. |
+| `set up a research program` / `register my chapters` | Creates shared program infrastructure for independent Research Projects. |
 
 The full routing table is in `SKILL.md`; deep workflow details are in `REFERENCE.md`.
+## 🧭 Research Project PM and Research Program PM
+
+A **Research Project PM** is the default: one independently managed article, chapter, study, grant, or other work unit. Its optional `work_type` records that label without imposing Paper I/II names.
+
+A **Research Program PM** is an optional shared layer for several projects that use common Coding Rules, Data provenance, meetings, participant roster, or idea Inbox. Each member retains its own status, analysis, writing, history, and manuscript-home routing.
+
+```bash
+# Register existing projects in a shared program.
+node $SKILL_DIR/scripts/manage-research-program.mjs --action bootstrap \
+  --program DissertationProgram --program-folder "$PROGRAM_PM" --vault-root "$VAULT" \
+  --shared-manuscript-home "$REPO" --project Chapter1 --project Chapter2
+
+# Safely adopt an existing standalone project: registry only, no moves or copies.
+node $SKILL_DIR/scripts/manage-research-program.mjs --action adopt-project \
+  --program DissertationProgram --project Chapter3 \
+  --work-id chapter-3 --work-type chapter --mode bridge
+```
+
+New registrations use `programs`, `program_id`, `work_id`, and `work_type`. Existing `series`, `series_id`, `paper_id`, and `manage-paper-series.mjs` setups remain valid and are never silently rewritten.
 
 <a id="pm-folder-model"></a>
 
@@ -99,9 +119,10 @@ Academic projects have a **two-folder problem**: the PM folder holds research st
 | [`EXAMPLES.md`](./EXAMPLES.md) | End-to-end recipes: bootstrap, log, repair, manuscript home. |
 | [`install.sh`](./install.sh) / [`install.ps1`](./install.ps1) | Bash and native PowerShell installers; rerun to update. |
 | [`openclaw-instruction.md`](./openclaw-instruction.md) | Copy-paste instruction for bootstrapping an OpenClaw PM agent. |
-| [`scripts/`](./scripts/) | Dependency-free Node scripts: `bootstrap-academic-pm.mjs` (bootstrap/repair/log), `check-academic-pm.mjs` (validator), `check-academic-closeout.mjs` (session close-out guard), `check-reorg-candidates.mjs` (read-only reorg detector), `migrate.mjs` (versioned config/schema migrations), `sync-agents-section.mjs` (manuscript-home AGENTS.md), `sync-openclaw-apm-section.mjs` (OpenClaw workspace AGENTS.md), `check-academic-skill.mjs` (skill-repo self-check). |
+| [`scripts/`](./scripts/) | Dependency-free Node scripts: `bootstrap-academic-pm.mjs` (bootstrap/repair/log), `check-academic-pm.mjs` (validator), `check-academic-closeout.mjs` (session close-out guard), `check-reorg-candidates.mjs` (read-only reorg detector), `migrate.mjs` (versioned config/schema migrations), `sync-agents-section.mjs` (manuscript-home AGENTS.md), `sync-openclaw-apm-section.mjs` (OpenClaw workspace AGENTS.md), `check-academic-skill.mjs` (skill-repo self-check), `manage-research-program.mjs` (canonical shared-program workflow), and `manage-paper-series.mjs` (legacy compatibility). |
 | [`templates/`](./templates/) | Canonical templates for root files, lane notes, meeting records, and AGENTS.md sections. |
-| [`scripts/test/`](./scripts/test/) | Self-test suite: `node scripts/test/run-tests.mjs`. |
+| [`scripts/test/`](./scripts/test/) | Self-test suite:
+ode scripts/test/run-tests.mjs`. |
 
 ## 📄 License
 

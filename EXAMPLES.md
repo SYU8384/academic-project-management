@@ -93,7 +93,8 @@ If the PM folder is renamed or moved, the path inside `<REPO>/AGENTS.md` will di
 
 ## Recipe 3: Re-bootstrap after changing manuscript access
 
-Scenario: you previously declared the manuscript home with `--manuscript-access authoritative`. Now you want to switch to `read-only` (or `none`) because you've handed the workfile folder off to a collaborator and should not write to their AGENTS.md anymore.
+Scenario: you previously declared the manuscript home with `--manuscript-access authoritative`. Now you want to switch to `read-only` (or
+one`) because you've handed the workfile folder off to a collaborator and should not write to their AGENTS.md anymore.
 
 ```bash
 # Re-run with the new access value. The bootstrap script will:
@@ -121,7 +122,8 @@ node $SKILL_DIR/scripts/check-academic-pm.mjs \
   --config "$SKILL_DIR/projects.json"
 ```
 
-If the section marker block is intact, the validator PASSes with a note: `access: read-only`, `note: manuscript_access=read-only` (no AGENTS.md checks performed on subsequent runs).
+If the section marker block is intact, the validator PASSes with a note: `access: read-only`,
+ote: manuscript_access=read-only` (no AGENTS.md checks performed on subsequent runs).
 
 ---
 
@@ -261,3 +263,61 @@ Constraints:
 - At least one `--note` is required; paths must already exist in the PM folder.
 - `--note` paths must be relative to the PM folder (no `..` or absolute paths).
 - `--log` does not modify any of the touched files; it only updates indexes.
+
+---
+
+## Recipe 8: Register and manage a Research Program
+
+Register existing Research Projects with the shared Research Program. Use whatever project names fit the work: articles, chapters, studies, or another work unit.
+
+```bash
+node $SKILL_DIR/scripts/manage-research-program.mjs --action bootstrap \
+  --program DissertationProgram --program-folder "$PROGRAM_PM" --vault-root "$VAULT" \
+  --shared-manuscript-home "$REPO" --project Chapter1 --project Chapter2 \
+  --config "$CONFIG"
+
+node $SKILL_DIR/scripts/bootstrap-academic-pm.mjs \
+  --project Chapter1 --pm-folder "$VAULT/Chapter 1" --phase analysis-writing \
+  --program DissertationProgram --work-id chapter-1 --work-type chapter \
+  --artifact-subpath chapters/chapter-1 --config "$CONFIG" --no-agents-md
+```
+
+Manage a selected free-form cross-paper meeting only when asked:
+
+```bash
+node $SKILL_DIR/scripts/manage-research-program.mjs --action manage-meeting \
+  --program MyProgram --note meetings/2026-08-26.md \
+  --participant "Prof. Tang" --applies-to paper-i --applies-to paper-ii \
+  --meeting-type advisor --config "$CONFIG"
+```
+
+Capture and then explicitly triage one idea. The second command never deletes its source:
+
+```bash
+node $SKILL_DIR/scripts/manage-research-program.mjs --action capture-idea \
+  --program MyProgram --title "Compare appointment pathways" --content "Raw thought" \
+  --source user --applies-to paper-i --config "$CONFIG"
+node $SKILL_DIR/scripts/manage-research-program.mjs --action triage-idea \
+  --program MyProgram --idea inbox/captures/2026-08-26-compare-appointment-pathways.md \
+  --status promoted --target "Paper I/planning/planning.md" --config "$CONFIG"
+```
+
+Validate the series and audit the Inbox:
+
+```bash
+node $SKILL_DIR/scripts/check-academic-pm.mjs --program MyProgram --config "$CONFIG" --strict
+node $SKILL_DIR/scripts/manage-research-program.mjs --action audit-inbox --program MyProgram --config "$CONFIG"
+```
+
+## Recipe 9: Convert a standalone Research Project into a Research Program
+
+First bootstrap the shared Research Program. Then adopt the existing project without moving its PM folder or manuscript home:
+
+```bash
+node $SKILL_DIR/scripts/manage-research-program.mjs --action adopt-project \
+  --program DissertationProgram --project Chapter3 \
+  --work-id chapter-3 --work-type chapter --mode bridge \
+  --config "$SKILL_DIR/projects.json"
+```
+
+Bridge conversion changes only registry membership. Validate with `check-academic-pm.mjs --program DissertationProgram --strict`.

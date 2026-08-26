@@ -135,6 +135,7 @@ function usage() {
     [--action bootstrap|repair|log] \\
     [--phase <phase>] [--notes "<one-line summary>"] \\
     [--project-type paper] [--access authoritative] [--vault-root <path>] \\
+    [--series <series-id>] [--paper-id <stable-id>] [--artifact-subpath <relative-path>] \\
     [--manuscript-home <path>] \\
     [--manuscript-kind git-repo|local-folder|null] \\
     [--manuscript-access authoritative|read-only|none] \\
@@ -184,7 +185,7 @@ function parseArgs(argv) {
     notes: "",
     config: null,
     action: "bootstrap",
-    projectType: "paper",
+    projectType: "research-project",
     access: "authoritative",
     vaultRoot: null,
     manuscriptHome: null,
@@ -197,6 +198,12 @@ function parseArgs(argv) {
     logEvent: null,
     logType: "log",
     logNotes: [],
+    seriesId: null,
+    paperId: null,
+    programId: null,
+    workId: null,
+    workType: null,
+    artifactSubpath: null,
   };
 
   for (let i = 2; i < argv.length; i += 1) {
@@ -231,6 +238,12 @@ function parseArgs(argv) {
     else if (arg === "--project-type") out.projectType = value;
     else if (arg === "--access") out.access = value;
     else if (arg === "--vault-root") out.vaultRoot = value;
+    else if (arg === "--series") out.seriesId = value;
+    else if (arg === "--paper-id") out.paperId = value;
+    else if (arg === "--program") out.programId = value;
+    else if (arg === "--work-id") out.workId = value;
+    else if (arg === "--work-type") out.workType = value;
+    else if (arg === "--artifact-subpath") out.artifactSubpath = value;
     else if (arg === "--manuscript-home") out.manuscriptHome = value;
     else if (arg === "--manuscript-kind") out.manuscriptKind = value;
     else if (arg === "--manuscript-access") out.manuscriptAccess = value;
@@ -528,6 +541,7 @@ function writeConfig() {
   const cfg = loadConfig();
   cfg.skill_dir = SKILL_DIR;
   cfg.projects[project] = {
+    ...(cfg.projects[project] ?? {}),
     project_type: cli.projectType,
     pm_folder: pmFolder,
     vault_root: vaultRoot,
@@ -543,6 +557,24 @@ function writeConfig() {
     cfg.projects[project].manuscript_home = "";
     cfg.projects[project].manuscript_kind = "null";
     cfg.projects[project].manuscript_access = cli.manuscriptAccess;
+  }
+  if (cli.seriesId) {
+    const series = cfg.series?.[cli.seriesId];
+    if (!series) throw new Error(`Series '${cli.seriesId}' is not registered in ${configPath}; bootstrap the series first.`);
+    cfg.projects[project].series_id = cli.seriesId;
+    cfg.projects[project].paper_id = cli.paperId ?? project;
+    if (cli.artifactSubpath) cfg.projects[project].artifact_subpath = cli.artifactSubpath;
+    series.papers = [...new Set([...(series.papers ?? []), project])];
+  }
+  if (cli.programId) {
+    const program = cfg.programs?.[cli.programId];
+    if (!program) throw new Error(`Research Program '${cli.programId}' is not registered in ${configPath}; bootstrap the program first.`);
+    cfg.projects[project].project_type = "research-project";
+    cfg.projects[project].program_id = cli.programId;
+    cfg.projects[project].work_id = cli.workId ?? project;
+    cfg.projects[project].work_type = cli.workType ?? "project";
+    if (cli.artifactSubpath) cfg.projects[project].artifact_subpath = cli.artifactSubpath;
+    program.projects = [...new Set([...(program.projects ?? []), project])];
   }
   writeReplace(configPath, `${JSON.stringify(cfg, null, 2)}\n`);
 }

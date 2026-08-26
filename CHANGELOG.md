@@ -5,7 +5,18 @@ All notable changes to this skill are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2026-08-26
+
+### Added
+
+- Canonical **Research Project PM** and **Research Program PM** model. New program registries use `programs`, `program_id`, `work_id`, `work_type`, and ordered `projects`; project labels may be articles, chapters, studies, or other work units.
+- `scripts/manage-research-program.mjs` for program infrastructure, meetings, Inbox workflows, and explicit project adoption.
+- Safe `adopt-project --mode bridge` conversion. It updates registry membership only and never moves PM folders, repositories, or artifacts.
+- Program validation through `check-academic-pm.mjs --program`, plus fixtures for chapter-oriented programs, legacy series compatibility, and no-relocation bridge adoption.
+
+### Changed
+
+- Public documentation, templates, examples, and agent prompts now use canonical Research Program/Project terminology. Existing `series`, `series_id`, `paper_id`, `papers`, `--series`, and `manage-paper-series.mjs` remain supported without silent conversion.
 
 ## [1.2.0] - 2026-08-25
 

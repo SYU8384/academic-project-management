@@ -1,15 +1,35 @@
 {
   "projects": {
     "<ProjectName>": {
-      "project_type": "paper",
+      "project_type": "research-project",
       "pm_folder": "",
       "vault_root": "",
-      "phase": "idea | literature-review | study-design | data-collection | analysis | writing | analysis-writing | submitted | revision | published | dormant",
+      "phase": "idea | literature | design | data | analysis | analysis-writing | writing | revision | submission | published",
       "access": "authoritative | read-only | unavailable",
       "notes": "",
       "manuscript_home": "",
       "manuscript_kind": "git-repo | local-folder | null",
-      "manuscript_access": "authoritative | readonly | none"
+      "manuscript_access": "authoritative | read-only | none",
+      "program_id": "optional-program-id",
+      "work_id": "stable-work-id",
+      "work_type": "article | chapter | study | other",
+      "artifact_subpath": "optional/subpath"
+    }
+  },
+  "programs": {
+    "<ProgramId>": {
+      "project_type": "research-program",
+      "pm_folder": "",
+      "vault_root": "",
+      "shared_manuscript_home": "",
+      "shared_resources": {
+        "coding_rules": "Coding Rules/Coding Rules.md",
+        "data_registry": "Data/Data.md"
+      },
+      "projects": ["<ProjectName>"],
+      "phase": "analysis-writing",
+      "access": "authoritative",
+      "notes": "Shared research infrastructure for a Research Program."
     }
   }
 }

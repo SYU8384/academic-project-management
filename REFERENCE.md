@@ -169,7 +169,7 @@ Repair workflow:
 {
   "projects": {
     "PaperI": {
-      "project_type": "paper",
+      "project_type": "research-project",
       "pm_folder": "/path/to/Paper I",
       "vault_root": "/path/to/Obsidian Vault",
       "phase": "analysis-writing",
@@ -326,3 +326,50 @@ Findings show up in the same errors/warnings buckets as PM folder issues, so a s
 ## Relationship To `academic-writer`
 
 Use this skill for research memory, project status, evidence trails, meeting notes, and folder maintenance. Use `academic-writer` for LaTeX drafting, revision prose, citation insertion, and compilation. When manuscript state changes, update `writing/`; do not duplicate the manuscript in the PM folder.
+
+## Research Program model
+
+A canonical `programs` registry entry owns shared research infrastructure; legacy `series` entries remain supported. A Research Program has `project_type: research-program`, `pm_folder`, `vault_root`, `shared_manuscript_home`, `shared_resources` (`coding_rules`, `data_registry`), ordered `projects`, phase, access, and notes. A Research Project adds `program_id`, stable `work_id`, and `work_type`, and an optional `artifact_subpath`. Do not copy shared registries into member PM folders.
+
+The Research Program root requires a landing note, `README.md`, `CURRENT_STATUS.md`, `meetings/meetings.md`, `meetings/participants.md`, `inbox/inbox.md`, and `inbox/captures/captures.md`. `check-academic-pm.mjs --series <id>` verifies membership, shared resources, paper PM paths, artifact subpaths, vault-relative cross-series links, and normal project validation remains unchanged.
+
+### Meetings
+
+There is no automatic meeting scan. A user must explicitly ask to manage a selected note. The command preserves the raw body and normalizes only this frontmatter:
+
+```yaml
+date: YYYY-MM-DD
+participants:
+  - Name
+applies_to:
+  - series | paper-id
+meeting_type: advisor | collaborator | other
+managed_at: YYYY-MM-DD
+```
+
+It may add or replace only the marker-delimited `## Agent-managed summary` block. The Research Program roster is generated from canonical meeting frontmatter, normalizing names case-insensitively; aliases/roles are optional human-maintained roster fields. Ask before resolving unclear people, paper scope, or destinations for decisions/actions.
+
+### Idea Inbox
+
+One Markdown note is one capture. Required capture metadata:
+
+```yaml
+captured: YYYY-MM-DD
+status: untriaged | triaged | promoted | archived
+applies_to:
+  - series | paper-id
+source: meeting | user | literature | other
+triaged_at: YYYY-MM-DD
+promotion_targets:
+  - Paper I/planning/topic.md
+```
+
+`capture-idea` creates a capture, `triage-idea` updates lifecycle metadata and a marked routing rationale without deleting source prose, and `audit-inbox` reports missing metadata, unresolved promotion links, and exact normalized-title duplicates. Audit performs no writes.
+
+### Synopsis / legacy migration
+
+`migrate-synopsis` first supports `--dry-run`, then copies every file, verifies SHA-256 equality, rewrites vault-relative links, writes a manifest, validates no old references remain, creates an archive landing note and a non-promoting extraction preview, and only then removes the source. The preview is a review queue; it never creates ideas. It must not be used to alter raw datasets or statistical outputs.
+
+### Safe conversion from a standalone project
+
+Create a Research Program, then explicitly adopt a registered Research Project with `manage-research-program.mjs --action adopt-project --program <id> --project <registry-key> --work-id <stable-id> --work-type <article|chapter|study|...> --mode bridge`. Bridge updates the registry and validates wiring without moving folders or artifacts. Legacy `series` records, `--series`, and `manage-paper-series.mjs` remain supported and are not silently rewritten.

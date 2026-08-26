@@ -30,7 +30,9 @@ const STATUS_STALE_DAYS = 14;
 function usage() {
   console.error(`Usage:
   check-academic-pm.mjs --path <academic-pm-folder> [--strict] [--json] [--stale-days N] [--history-word-limit N]
-  check-academic-pm.mjs --project <ProjectName> [--config <projects.json>] [--strict] [--json] [--stale-days N] [--history-word-limit N]`);
+  check-academic-pm.mjs --project <ProjectName> [--config <projects.json>] [--strict] [--json] [--stale-days N] [--history-word-limit N]
+  check-academic-pm.mjs --program <ProgramId> [--config <projects.json>] [--strict] [--json]
+  check-academic-pm.mjs --series <SeriesId> [--config <projects.json>] [--strict] [--json]  # legacy alias`);
 }
 
 function parseArgs(argv) {
@@ -53,7 +55,7 @@ function parseArgs(argv) {
       args.historyWordLimit = parseInt(value, 10);
       if (isNaN(args.historyWordLimit) || args.historyWordLimit < 1) throw new Error(`Invalid ${arg}: ${value}`);
       i += 1;
-    } else if (arg === "--path" || arg === "--project" || arg === "--config") {
+    } else if (arg === "--path" || arg === "--project" || arg === "--series" || arg === "--program" || arg === "--config") {
       const value = argv[i + 1];
       if (!value) throw new Error(`Missing value for ${arg}`);
       args[arg.slice(2)] = value;
@@ -64,7 +66,9 @@ function parseArgs(argv) {
       throw new Error(`Unknown argument: ${arg}`);
     }
   }
-  if (!args.config && args.project) args.config = DEFAULT_CONFIG_PATH;
+  if (!args.config && (args.project || args.series || args.program)) args.config = DEFAULT_CONFIG_PATH;
+  if ((args.series || args.program) && (args.path || args.project)) throw new Error("--program/--series cannot be combined with --path or --project.");
+  if (args.series && args.program) throw new Error("--program cannot be combined with legacy --series.");
   return args;
 }
 
@@ -203,6 +207,7 @@ function addFinding(report, kind, message) {
 
 function checkFrontmatter(report, root, abs) {
   const rel = toPosix(path.relative(root, abs));
+  if (rel.startsWith("archive/legacy-synopsis/")) return; // preserved historical source, validated by its migration manifest
   const text = readText(abs);
   const fields = parseFrontmatter(text);
   if (!fields) {
@@ -407,7 +412,9 @@ function extractManagedAgentsSection(text) {
 
 function normalizePathForCompare(value) {
   if (!value) return "";
-  return path.resolve(value).replace(/\\/g, "/").replace(/\/+$/, "");
+  const wsl = String(value).match(/^\/mnt\/([A-Za-z])\/(.*)$/);
+  const native = wsl ? `${wsl[1].toUpperCase()}:/${wsl[2]}` : path.resolve(value);
+  return native.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
 function checkManuscriptHome(report, manuscriptHome, manuscriptKind) {
@@ -539,7 +546,50 @@ function validate(target, args) {
   return report;
 }
 
-function printReport(report, args) {
+function validateGroup(args) {
+  const configPath = path.resolve(args.config);
+  const cfg = readJson(configPath);
+  const isProgram = Boolean(args.program);
+  const id = args.program ?? args.series;
+  const group = isProgram ? cfg.programs?.[id] : cfg.series?.[id];
+  const kind = isProgram ? "Research Program" : "Series";
+  const memberField = isProgram ? "projects" : "papers";
+  const linkField = isProgram ? "program_id" : "series_id";
+  const workField = isProgram ? "work_id" : "paper_id";
+  if (!group) throw new Error(`${kind} '${id}' not found in ${configPath}.`);
+  const root = path.resolve(group.pm_folder ?? "");
+  const report = { root, project: null, program: isProgram ? id : null, series: isProgram ? null : id, access: group.access ?? "unknown", rootNote: null, manuscriptHome: null, errors: [], warnings: [] };
+  if (!group.pm_folder || !fs.existsSync(root) || !fs.statSync(root).isDirectory()) report.errors.push(`${kind} PM root does not exist: ${group.pm_folder ?? "(missing)"}`);
+  else {
+    for (const rel of ["README.md", "CURRENT_STATUS.md", "meetings/meetings.md", "meetings/participants.md", "inbox/inbox.md"]) if (!existsFile(root, rel)) report.errors.push(`${kind} missing required file: ${rel}`);
+    const note = findRootNote(root); if (!note) report.errors.push(`${kind} root has no resolvable landing note.`); else report.rootNote = toPosix(path.relative(root, note));
+    for (const [name, rel] of Object.entries(group.shared_resources ?? {})) if (!rel || !existsFile(root, rel)) report.errors.push(`${kind} shared resource '${name}' is missing: ${rel ?? "(missing)"}`);
+    checkCurrentStatusFreshness(report, root, args.staleDays);
+  }
+  const sharedHome = group.shared_manuscript_home ? path.resolve(group.shared_manuscript_home) : null;
+  if (!sharedHome || !fs.existsSync(sharedHome) || !fs.statSync(sharedHome).isDirectory()) report.errors.push(`${kind} shared_manuscript_home does not exist: ${group.shared_manuscript_home ?? "(missing)"}`);
+  const members = group[memberField] ?? [];
+  if (!Array.isArray(members) || members.length === 0) report.errors.push(`${kind} has no Research Project members.`);
+  if (new Set(members).size !== members.length) report.errors.push(`${kind} ${memberField} contains duplicate project IDs.`);
+  for (const memberId of members) {
+    const member = cfg.projects?.[memberId];
+    if (!member) { report.errors.push(`${kind} member '${memberId}' is not registered in projects.`); continue; }
+    if (member[linkField] !== id) report.errors.push(`${kind} member '${memberId}' has ${linkField} '${member[linkField] ?? "(missing)"}', expected '${id}'.`);
+    if (!member[workField]) report.errors.push(`${kind} member '${memberId}' is missing ${workField}.`);
+    if (isProgram && !member.work_type) report.errors.push(`Research Project '${memberId}' is missing work_type.`);
+    const pm = member.pm_folder ? path.resolve(member.pm_folder) : null;
+    if (!pm || !fs.existsSync(pm) || !fs.statSync(pm).isDirectory()) report.errors.push(`${kind} member '${memberId}' PM folder is missing: ${member.pm_folder ?? "(missing)"}`);
+    else if (!root || path.relative(root, pm).startsWith("..")) report.warnings.push(`${kind} member '${memberId}' PM folder is outside program root: ${member.pm_folder}`);
+    if (member.manuscript_home && member.manuscript_access === "authoritative") {
+      const agents = path.join(path.resolve(member.manuscript_home), "AGENTS.md");
+      if (!fs.existsSync(agents)) report.errors.push(`${kind} member '${memberId}' authoritative manuscript home lacks AGENTS.md: ${agents}`);
+      else { const pmPosix = member.pm_folder.replaceAll("\\", "/"); const pmWsl = pmPosix.replace(/^([A-Za-z]):\//, (_, drive) => `/mnt/${drive.toLowerCase()}/`); if (![member.pm_folder, pmPosix, pmWsl].some((variant) => readText(agents).includes(variant))) report.errors.push(`${kind} member '${memberId}' AGENTS.md does not route to its registered PM folder.`); }
+    }
+    if (member.artifact_subpath) { const artifact = sharedHome ? path.resolve(sharedHome, member.artifact_subpath) : null; if (!artifact || !fs.existsSync(artifact) || !fs.statSync(artifact).isDirectory()) report.errors.push(`${kind} member '${memberId}' artifact_subpath is missing under shared repo: ${member.artifact_subpath}`); }
+  }
+  report.status = report.errors.length > 0 || (args.strict && report.warnings.length > 0) ? "FAIL" : "PASS";
+  return report;
+}function printReport(report, args) {
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
     return;
@@ -589,8 +639,7 @@ try {
     usage();
     process.exit(0);
   }
-  const target = resolveTarget(args);
-  const report = validate(target, args);
+  const report = (args.series || args.program) ? validateGroup(args) : validate(resolveTarget(args), args);
   printReport(report, args);
   process.exit(report.status === "FAIL" ? 1 : 0);
 } catch (error) {

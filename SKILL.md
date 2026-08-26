@@ -1,6 +1,6 @@
 ---
 name: academic-project-management
-description: "Keeps academic research state in sync: literature, evidence, analysis, writing, meetings, planning, history, and archive. Use when the user asks to set up, initialize, normalize, register, log, update, audit, validate, repair, or organize an academic project; record advisor feedback, data checks, analysis findings, writing progress, revisions, or research decisions; declare a manuscript home and wire its AGENTS.md to the PM folder."
+description: "Keeps academic research state in sync for standalone Research Projects and Research Programs: shared coding/data registries, literature, evidence, analysis, writing, meetings, ideas, planning, history, and archive. Use when the user asks to set up, initialize, normalize, register, log, update, audit, validate, repair, or organize an academic project; record advisor feedback, data checks, analysis findings, writing progress, revisions, or research decisions; declare a manuscript home and wire its AGENTS.md to the PM folder."
 ---
 
 # Academic Project Management
@@ -24,6 +24,9 @@ Say any of these phrases and the agent will handle the workflow interactively:
 | **"organize PM folder"**, **"tidy PM folder"**, **"PM spring cleaning"** | Reorganize | Runs `scripts/check-reorg-candidates.mjs` (read-only) and proposes an approval-gated merge/retire/archive plan from the detected signals. |
 | **"run migrations"**, **"backfill registry"**, **"migrate projects.json"** | Migrate | Runs `scripts/migrate.mjs` to apply pending versioned migrations (config/PM-folder schema backfills). Idempotent; ledger-recorded. |
 | **"set up OpenClaw PM"**, **"OpenClaw academic PM"** | OpenClaw setup | Displays the copy-paste prompt for OpenClaw workspace configuration. |
+| **"set up a research program"**, **"register my chapters"** | Research Program bootstrap | Registers shared infrastructure and independent Research Projects. |
+| **"manage this meeting note"** | Meeting normalization | Preserves prose; adds canonical metadata, a marked summary block, index entry, and roster backlink. |
+| **"capture/triage/audit this idea"** | Research Program Inbox | Creates or updates explicit capture notes; never silently promotes or deletes an idea. |
 
 The agent handles the details — you don't need to remember script paths or flags.
 
@@ -221,3 +224,21 @@ The instruction installs or updates the skill, verifies `projects.json`, configu
 ## Final Response
 
 After setup, logging, migration, or repair, state exactly which project/vault/manuscript-home files were updated, including `<manuscript_home>/AGENTS.md` when the managed section was appended, created, or refreshed. If no files changed, say that and why.
+
+## Research Program model
+
+A Research Program is a shared layer above independently managed Research Projects. A project can be an article, chapter, study, or another work unit. Its registered root owns the shared `Coding Rules/`, `Data/`, `meetings/`, and `inbox/` lanes. Each member Research Project keeps its existing PM lanes, status, history, manuscript-home routing, and optional `artifact_subpath` under the shared manuscript repository. Standalone projects remain valid.
+
+Use `scripts/manage-research-program.mjs` only after an explicit user request. It has no cron, watcher, background scan, or silent edit mode. Research Program meetings are the default for cross-project matters. A project-specific meeting remains valid when the user scopes it to that project.
+
+A meeting can start as free-form prose. When asked to manage it, resolve ambiguous participants, applicability, or decision destinations with the user; then write only its standard frontmatter (`date`, `participants`, `applies_to`, `meeting_type`, `managed_at`) and the marker-delimited agent-managed summary. The generated participant roster is derived from those note fields.
+
+The Research Program Inbox stores one capture note per idea. Capture fields are `captured`, `status`, `applies_to`, `source`, `triaged_at`, and `promotion_targets`; statuses are `untriaged`, `triaged`, `promoted`, and `archived`. Triage preserves the capture and records rationale/links. Audit is read-only.
+
+For command syntax, validation, and migration safeguards, read the Research Program section of `REFERENCE.md` and the Research Program recipe in `EXAMPLES.md`.
+
+## Canonical naming and legacy compatibility
+
+Use **Research Project PM** for any independently managed work unit. Set optional `work_type` to a descriptive value such as `article`, `chapter`, or `study`. Use **Research Program PM** only when multiple projects share data, rules, meetings, or an idea Inbox. New registrations use `programs`, `program_id`, and `work_id`. Existing `series` / `paper_id` configuration and `manage-paper-series.mjs` remain supported as legacy aliases.
+
+To convert a standalone project safely, bootstrap a Research Program and run `manage-research-program.mjs --action adopt-project --mode bridge`. Bridge adoption updates only registry membership; it never relocates PM folders, manuscript repositories, or artifacts.

@@ -105,6 +105,10 @@ const ALLOWED_PLACEHOLDERS = new Set([
   "<hex>",
   // projects.template.json
   "<ProjectName>",
+  "<ProgramId>",
+  "<id>",
+  "<registry-key>",
+  "<stable-id>",
   // CLI usage / prose examples in docs
   "<academic-pm-folder>",
   "<pm-folder>",
@@ -285,7 +289,7 @@ function checkVersionMentions(findings) {
       findings.push(finding({
         code: "version.changelog-head-mismatch",
         path: "CHANGELOG.md",
-        message: `newest changelog entry is ${m[1]} but VERSION is ${version}`,
+        message: `Newest changelog entry is ${m[1]} but VERSION is ${version}`,
         remedy: "Add a changelog entry for the current version or fix VERSION.",
       }));
     }
@@ -341,7 +345,7 @@ function checkTemplateDrift(findings) {
   // any script: folder-note.md (older lane-note factory), projects.template.json
   // (projects.json schema reference), and meeting-record.md (meeting-note body
   // template). NOTE: meeting-record.md is not currently documented in SKILL.md.
-  const DOCUMENTATION_ONLY = new Set(["folder-note.md", "projects.template.json", "meeting-record.md", ".gitignore"]);
+  const DOCUMENTATION_ONLY = new Set(["folder-note.md", "projects.template.json", "meeting-record.md", "captures.md", "idea.md", "inbox.md", "participants.md", "series-CURRENT_STATUS.md", "series-meetings.md", "series-README.md", "series-root-note.md", ".gitignore"]);
   for (const name of loaded) {
     if (!existsSync(join(SKILL_DIR, "templates", name))) {
       findings.push(finding({

@@ -391,7 +391,7 @@ step("T11 projects.json schema after bootstrap", () => {
   // Assert the recorded fields have the expected values.
   const re = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
   assertEqual(re.skill_dir, SKILL_DIR, "skill_dir not recorded");
-  assertEqual(re.projects.T11A.project_type, "paper", "project_type default");
+  assertEqual(re.projects.T11A.project_type, "research-project", "project_type default");
   assertEqual(re.projects.T11A.phase, "analysis-writing", "phase");
   assertEqual(re.projects.T11A.access, "authoritative", "access default");
   assertEqual(re.projects.T11A.notes, "T11A notes", "notes recorded");
@@ -911,6 +911,19 @@ step("T26 repair respects description-suffixed index entries", () => {
   );
 });
 
+// Test 28: canonical generic Research Program bootstrap, validation, and safe bridge adoption.
+step("T28 Research Program fixtures", () => {
+  const result = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "test", "run-program-tests.mjs")], { encoding: "utf8" });
+  assertEqual(result.status, 0, `program fixture failure:\n${result.stdout}\n${result.stderr}`);
+  assert(result.stdout.includes("Research Program fixtures: PASS"), "program fixture did not report success");
+});
+
+// Test 27: series bootstrap, meeting normalization, Inbox lifecycle, and safe Synopsis migration.
+step("T27 paper-series fixtures", () => {
+  const result = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "test", "run-series-tests.mjs")], { encoding: "utf8" });
+  assertEqual(result.status, 0, `series fixture failure:\n${result.stdout}\n${result.stderr}`);
+  assert(result.stdout.includes("Series fixtures: PASS"), "series fixture did not report success");
+});
 // ---------------------------------------------------------------------------
 
 // Test 27: sync-openclaw-apm-section.mjs --bootstrap inserts the managed
