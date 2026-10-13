@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Public documentation, templates, examples, and agent prompts now use canonical Research Program/Project terminology. Existing `series`, `series_id`, `paper_id`, `papers`, `--series`, and `manage-paper-series.mjs` remain supported without silent conversion.
 
+## [1.3.0] - 2026-10-13
+
+### Added
+
+- `templates/AGENTS_ACADEMIC_PM_SECTION.md`: three behavioral blocks ported (selectively) from the project-management skill's AGENTS.md section, so coding/writing agents update the PM folder during the same session they code. (1) **Access resolution**: agents verify `~/.config/academic-pm/projects.json` for a matching `manuscript_home` with an accessible `pm_folder` before relying on the section; no config, no match, missing PM folder, or non-`authoritative` access means skip PM updates silently and never ask PM setup questions. (2) **Current-state before history**: `CURRENT_STATUS.md` and affected lane notes are updated before the `history/` bullet. (3) **Close-out guard**: before the final response after any manuscript-home change, agents run `scripts/check-academic-closeout.mjs` from the manuscript home (auto-matches the project) or state the no-impact reason. REFERENCE.md's "Manuscript Home And AGENTS.md Integration" section documents all three blocks. Existing projects pick up the new section via `scripts/sync-agents-section.mjs`.
+
 ## [1.2.0] - 2026-08-25
 
 ### Added

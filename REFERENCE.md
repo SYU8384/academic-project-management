@@ -249,6 +249,12 @@ The opening sentence is **template-substituted** with the values from the bootst
 
 The bootstrap script manages that section end-to-end. It is **append-safe** (it never overwrites user content outside the marker block) and **idempotent** (re-running refreshes the managed section in place). The PM folder path inside the section is interpolated from `projects.json`, so the validator can detect drift if the PM folder is moved.
 
+The section carries three behavioral blocks beyond routing:
+
+- **Access resolution**: because `AGENTS.md` travels with clones and machines, the agent must confirm local access before relying on the section — check `~/.config/academic-pm/projects.json` for a project whose `manuscript_home` matches this folder with an accessible `pm_folder`. No config, no match, missing PM folder, or non-`authoritative` access means **no PM write access**: skip PM updates silently and never ask PM setup questions.
+- **Current-state before history**: PM updates land in `CURRENT_STATUS.md` and the affected lane notes first; the `history/` bullet is appended last.
+- **Close-out guard**: before the final response after any manuscript-home change, the agent runs `scripts/check-academic-closeout.mjs` from the manuscript home (it auto-matches the project), fixes what it flags, or passes `--allow-no-impact "<reason>"` only for genuine no-PM-impact work.
+
 ### Routing rules
 
 The PM folder's `README.md` wins over `<manuscript_home>/AGENTS.md`. If a coding or writing task needs research state that is not in the PM folder, the agent stops and asks — it does not invent research state at the manuscript home or in `AGENTS.md`.
