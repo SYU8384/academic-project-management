@@ -44,6 +44,7 @@ This README is the routing map for the <Project> academic research folder.
 - Update current-state notes before history.
 - Keep history concise; move detailed reports to `analysis/` or `verification/`.
 - Update folder indexes whenever notes are added, moved, archived, or deleted.
+- Update the `## What Goes Where` (and `## Optional Lanes`) route tables in the same session whenever a folder or lane is created, renamed, or deleted. `check-academic-pm.mjs` fails on route rows pointing at lanes that no longer exist and on live lanes missing from the tables. New notes inside existing lanes do not require README updates; the folder indexes cover those.
 - Do not store raw sensitive data in this PM folder unless this README explicitly permits it.
 
 ## Validation

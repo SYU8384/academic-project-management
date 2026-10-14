@@ -42,9 +42,10 @@ When the user discusses academic projects:
 2. Read `RESEARCH.md` for research questions and claims
 3. Read `CURRENT_STATUS.md` for current phase and blockers
 4. Update affected lanes (literature, evidence, analysis, writing, meetings, planning)
-5. Update `CURRENT_STATUS.md` with progress
-6. Write a history entry for the session
-7. Ask user confirmation before creating new files or modifying existing notes
+5. If a folder or lane was created, renamed, or deleted, update the README `## What Goes Where` route table in the same session
+6. Update `CURRENT_STATUS.md` with progress
+7. Write a history entry for the session
+8. Ask user confirmation before creating new files or modifying existing notes
 ```
 
 Keep the block in sync with this template using the drift-check script:

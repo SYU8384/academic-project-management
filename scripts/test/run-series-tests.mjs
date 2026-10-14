@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const workspace = path.dirname(fileURLToPath(import.meta.url));
-const skill = "C:/Users/zhuqi/.agents/skills/academic-project-management";
+const skill = path.resolve(workspace, "..", "..");
 const seriesScript = path.join(skill, "scripts/manage-paper-series.mjs");
 const bootstrap = path.join(skill, "scripts/bootstrap-academic-pm.mjs");
 const check = path.join(skill, "scripts/check-academic-pm.mjs");
@@ -56,7 +56,7 @@ run(seriesScript, ["--action", "manage-meeting", "--series", "series-alpha", "--
 assert.equal((text(path.join(root, "meetings/2026-08-26.md")).match(/Agent-managed summary/g) ?? []).length, 1, "meeting management is not idempotent");
 assert.ok(once.includes("Raw meeting"), "raw meeting check invalid");
 
-run(seriesScript, ["--action", "capture-idea", "--series", "series-alpha", "--title", "Compare appointment pathways", "--content", "Keep this raw idea.", "--source", "meeting", "--applies-to", "paper-i", "--config", config]);
+run(seriesScript, ["--action", "capture-idea", "--series", "series-alpha", "--title", "Compare appointment pathways", "--content", "Keep this raw idea.", "--source", "meeting", "--applies-to", "paper-i", "--date", "2026-08-26", "--config", config]);
 const idea = "inbox/captures/2026-08-26-compare-appointment-pathways.md";
 run(seriesScript, ["--action", "triage-idea", "--series", "series-alpha", "--idea", idea, "--status", "promoted", "--target", "Paper I/planning/planning.md", "--rationale", "Fits Paper I design work.", "--config", config]);
 const ideaText = text(path.join(root, ...idea.split("/")));
@@ -71,8 +71,8 @@ fs.writeFileSync(path.join(synopsis, "idea.md"), "# Old idea\n");
 fs.writeFileSync(path.join(synopsis, "attachments/source.bin"), Buffer.from([1, 2, 3, 4]));
 const oldRef = "Research Projects/Series Alpha/Synopsis/idea";
 fs.writeFileSync(path.join(root, "Paper I", "analysis", "legacy-link.md"), `[[${oldRef}|old]]\n`);
-run(seriesScript, ["--action", "migrate-synopsis", "--series", "series-alpha", "--source", synopsis, "--paper", "Paper I", "--config", config, "--dry-run"]);
-run(seriesScript, ["--action", "migrate-synopsis", "--series", "series-alpha", "--source", synopsis, "--paper", "Paper I", "--config", config]);
+run(seriesScript, ["--action", "migrate-synopsis", "--series", "series-alpha", "--source", synopsis, "--paper", "Paper I", "--date", "2026-08-26", "--config", config, "--dry-run"]);
+run(seriesScript, ["--action", "migrate-synopsis", "--series", "series-alpha", "--source", synopsis, "--paper", "Paper I", "--date", "2026-08-26", "--config", config]);
 const migrated = path.join(root, "Paper I", "archive", "legacy-synopsis");
 assert.ok(!fs.existsSync(synopsis), "legacy source was not removed after validation");
 assert.equal(hash(path.join(migrated, "attachments/source.bin")), crypto.createHash("sha256").update(Buffer.from([1, 2, 3, 4])).digest("hex"), "attachment hash changed");

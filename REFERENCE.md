@@ -79,7 +79,7 @@ When logging meaningful work:
 1. Determine the project from the explicit path, current folder, or `projects.json`.
 2. Read the project `README.md`, `RESEARCH.md`, and `CURRENT_STATUS.md`.
 3. Update durable current-state notes first.
-4. Update folder-note indexes if notes were added, moved, archived, or deleted.
+4. Update folder-note indexes if notes were added, moved, archived, or deleted; update the README `## What Goes Where` route table if a folder or lane was created, renamed, or deleted.
 5. Add a concise history entry last.
 6. Run the validator when structure or links changed.
 
@@ -146,6 +146,7 @@ The validator checks:
 - folder-note presence for required and optional lanes
 - basic frontmatter on visible notes
 - folder index completeness
+- README routing-map consistency — route rows in `## What Goes Where` / `## Optional Lanes` pointing at lanes that no longer exist, and live top-level lanes missing from the tables, are errors. Optional lanes (`verification/`, `submissions/`, `admin/`, `ethics/`, `collaboration/`) may stay documented while absent on disk; note-level churn is covered by the folder index checks, not the README.
 - unresolved project-internal wiki links
 - stale `CURRENT_STATUS.md` — flagged when `last_reviewed` (or `updated`) is older than `STATUS_STALE_DAYS = 14` days. Adjust by editing `scripts/check-academic-pm.mjs` if a project has a different review cadence.
 - overlong history notes — flagged when a history note exceeds `HISTORY_WORD_WARNING = 1200` words or `HISTORY_LINE_WARNING = 140` lines. Move the report detail to `analysis/` and leave a brief history entry behind.
@@ -248,12 +249,6 @@ This project has an academic PM folder at `<pm_folder>`. The paper artifact and 
 The opening sentence is **template-substituted** with the values from the bootstrap CLI flags. When `manuscript_kind = null`, the entire opening sentence is replaced with: "The PM folder is the whole project; there is no separate manuscript home." When `manuscript_kind = git-repo` or `local-folder`, it reads: "The paper artifact and analysis code live at `<manuscript_home>` (`<manuscript_kind>`, access `<manuscript_access>`)."
 
 The bootstrap script manages that section end-to-end. It is **append-safe** (it never overwrites user content outside the marker block) and **idempotent** (re-running refreshes the managed section in place). The PM folder path inside the section is interpolated from `projects.json`, so the validator can detect drift if the PM folder is moved.
-
-The section carries three behavioral blocks beyond routing:
-
-- **Access resolution**: because `AGENTS.md` travels with clones and machines, the agent must confirm local access before relying on the section — check `~/.config/academic-pm/projects.json` for a project whose `manuscript_home` matches this folder with an accessible `pm_folder`. No config, no match, missing PM folder, or non-`authoritative` access means **no PM write access**: skip PM updates silently and never ask PM setup questions.
-- **Current-state before history**: PM updates land in `CURRENT_STATUS.md` and the affected lane notes first; the `history/` bullet is appended last.
-- **Close-out guard**: before the final response after any manuscript-home change, the agent runs `scripts/check-academic-closeout.mjs` from the manuscript home (it auto-matches the project), fixes what it flags, or passes `--allow-no-impact "<reason>"` only for genuine no-PM-impact work.
 
 ### Routing rules
 

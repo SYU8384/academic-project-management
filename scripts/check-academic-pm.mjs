@@ -306,6 +306,60 @@ function checkIndexes(report, root) {
   }
 }
 
+// README routing-map consistency. The PM folder README's `## What Goes
+// Where` (and `## Optional Lanes`) tables are the routing map agents read
+// first; when a folder lane is created, renamed, or deleted the map
+// silently drifts. This check compares the first backticked lane token of
+// each table row against the filesystem in both directions: rows pointing
+// at lanes that no longer exist (stale rows), and live top-level folders
+// missing from the tables (undocumented lanes).
+//
+// Root-file rows (`RESEARCH.md`, `CURRENT_STATUS.md`, ...) carry no `/`
+// and are skipped: missing required root files are already reported by
+// checkRequiredStructure. Canonical optional lanes (verification/,
+// submissions/, admin/, ethics/, collaboration/) may stay documented while
+// absent on disk. Note-level churn is enforced by the folder index checks,
+// not by the README.
+const README_ROUTING_SECTIONS = ["What Goes Where", "Optional Lanes"];
+
+function readmeLaneTokens(text) {
+  const tokens = new Set();
+  for (const sectionName of README_ROUTING_SECTIONS) {
+    const start = text.search(new RegExp(`^## ${sectionName}\\s*$`, "m"));
+    if (start === -1) continue;
+    const rest = text.slice(start).split("\n").slice(1).join("\n");
+    const next = rest.search(/^## /m);
+    const section = next === -1 ? rest : rest.slice(0, next);
+    for (const line of section.split("\n")) {
+      if (!/^\s*\|/.test(line)) continue;
+      const match = line.match(/`([^`\n]+)`/);
+      if (match) tokens.add(match[1].trim());
+    }
+  }
+  return tokens;
+}
+
+function checkReadmeRouting(report, root) {
+  if (!existsFile(root, "README.md")) return;
+  const tokens = readmeLaneTokens(readText(path.join(root, "README.md")));
+  if (tokens.size === 0) return;
+  const documented = new Set([...tokens].map((token) => token.replace(/\/+$/, "")));
+  const optionalLanes = new Set(OPTIONAL_FOLDERS.map((folder) => `${folder}/`));
+  for (const token of tokens) {
+    if (!token.includes("/")) continue;
+    if (optionalLanes.has(token)) continue;
+    if (!fs.existsSync(path.join(root, token.replace(/\/+$/, "")))) {
+      addFinding(report, "errors", `README route row points at a lane that no longer exists: ${token} — remove or retarget the row`);
+    }
+  }
+  for (const entry of visibleEntries(root)) {
+    if (!entry.isDirectory()) continue;
+    if (!documented.has(entry.name)) {
+      addFinding(report, "errors", `README route table is missing a row for live lane: ${entry.name}/ — document what belongs there`);
+    }
+  }
+}
+
 function wikiTarget(raw) {
   const noAlias = raw.split("|")[0];
   return stripMd(noAlias.split("#")[0].split("^")[0].trim().replace(/\\/g, "/"));
@@ -535,6 +589,7 @@ function validate(target, args) {
   checkRequiredStructure(report, target.root);
   for (const abs of listMarkdownFiles(target.root)) checkFrontmatter(report, target.root, abs);
   checkIndexes(report, target.root);
+  checkReadmeRouting(report, target.root);
   checkWikiLinks(report, target.root, target.vaultRoot);
   checkCurrentStatusFreshness(report, target.root, args.staleDays);
   checkHistorySize(report, target.root, args.historyWordLimit);

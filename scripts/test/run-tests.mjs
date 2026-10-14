@@ -1082,6 +1082,53 @@ step("T34 install.ps1 static sanity", () => {
   assert(!/\.config[\\/]project-management/.test(ps1), "no leftover PM config path");
 });
 
+// Test 35: README routing-map consistency. A stale route row (lane deleted
+// from disk) and an undocumented live lane are hard errors; documenting the
+// lane restores PASS. Optional lanes may stay documented while absent
+// (covered implicitly by T7: the fresh scaffold documents verification/
+// without creating it).
+const pm35 = freshWorkdir("readme-routing");
+const config35 = path.join(pm35, "projects.json");
+step("T35 README route table matches live folder lanes", () => {
+  bootstrap([
+    "--project", "T35Project", "--pm-folder", pm35, "--phase", "analysis",
+    "--notes", "T35", "--config", config35,
+  ]);
+  const readmePath = path.join(pm35, "README.md");
+  const original = fs.readFileSync(readmePath, "utf8");
+
+  // Stale row: document a lane that does not exist on disk.
+  fs.writeFileSync(readmePath, original.replace(
+    "| `archive/` |",
+    "| `old-lane/` | Retired experiment lane |\n| `archive/` |",
+  ));
+  let r = run("node", [CHECK, "--path", pm35, "--json"], { expectFail: true });
+  let report = JSON.parse(r.stdout);
+  assertEqual(report.status, "FAIL", "stale route row should FAIL validation");
+  assert(report.errors.some((e) => /old-lane\//.test(e) && /no longer exists/.test(e)),
+    `error should name the stale row; got: ${JSON.stringify(report.errors)}`);
+
+  // Restore, then create an undocumented live lane.
+  fs.writeFileSync(readmePath, original);
+  fs.mkdirSync(path.join(pm35, "fieldwork"));
+  r = run("node", [CHECK, "--path", pm35, "--json"], { expectFail: true });
+  report = JSON.parse(r.stdout);
+  assertEqual(report.status, "FAIL", "undocumented live lane should FAIL validation");
+  assert(report.errors.some((e) => /fieldwork\//.test(e) && /missing a row/.test(e)),
+    `error should name the undocumented lane; got: ${JSON.stringify(report.errors)}`);
+
+  // Document the lane: validation passes again.
+  fs.writeFileSync(readmePath, original.replace(
+    "| `archive/` |",
+    "| `fieldwork/` | Fieldwork notes and logs |\n| `archive/` |",
+  ));
+  report = JSON.parse(validate(pm35).stdout);
+  assert(
+    !report.errors.some((e) => /route row|missing a row/.test(e)),
+    `routing errors should clear after documenting the lane; got: ${JSON.stringify(report.errors)}`,
+  );
+});
+
 // ---------------------------------------------------------------------------
 const passed = results.filter(r => r.status === "PASS").length;
 const failed = results.filter(r => r.status === "FAIL").length;

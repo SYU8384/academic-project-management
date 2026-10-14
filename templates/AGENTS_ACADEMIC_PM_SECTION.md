@@ -2,10 +2,6 @@
 
 This project has an academic PM folder at `<pm_folder>`. The paper artifact and analysis code live at `<manuscript_home>` (`<manuscript_kind>`, access `<manuscript_access>`). The PM folder's `README.md` wins for routing.
 
-Before relying on this section, resolve local access. This `AGENTS.md` can travel (clones, other machines, changed config), so do not assume the PM folder exists just because the path is written here:
-- Check whether `~/.config/academic-pm/projects.json` exists and has a project whose `manuscript_home` matches this folder and whose `pm_folder` is accessible.
-- If there is no config, no matching entry, the PM folder is missing, or access is not `authoritative`, treat this as **no PM write access**: skip PM updates silently. Do not ask PM setup questions, do not invent PM paths, and do not edit PM files.
-
 Before coding or writing:
 - Read the PM folder's `README.md` to know the routing map.
 - Read `RESEARCH.md` for the research question, contribution, claims, scope, and target venue.
@@ -24,11 +20,8 @@ After coding or writing:
 - Did the research framing or scope shift? If yes, update `RESEARCH.md`.
 - Did a research decision worth durably recording happen? If yes, add a note in `planning/` (lightweight ADR-style) with the rationale and alternatives considered.
 - Did any note get added, moved, renamed, archived, or deleted? If yes, update the affected folder indexes in the same session.
-- Update current-state docs (`CURRENT_STATUS.md` and the affected lane notes) **before** appending history. Then always add a `history/YYYY-MM-DD-<slug>.md` (or `history/YYYY-MM/...`) bullet for what changed and why.
-
-Close-out (before your final response after any manuscript-home change):
-- Run `node <skill_dir>/scripts/check-academic-closeout.mjs` from this folder (it auto-matches the project by manuscript home). If it fails, fix the PM docs it flags, or re-run with `--allow-no-impact "<reason>"` only for genuine no-PM-impact work.
-- If the skill path is unknown, manually verify the same close-out: manuscript-home diff inspected, current-state docs updated or explicitly no-impact, history updated last.
+- Did a folder or lane get created, renamed, or deleted? If yes, update the README `## What Goes Where` route table in the same session; the validator fails on stale rows and undocumented live lanes.
+- Always add a `history/YYYY-MM-DD-<slug>.md` (or `history/YYYY-MM/...`) bullet for what changed and why.
 
 Strict routing:
 - Research state (questions, claims, evidence, literature notes, advisor meetings, decisions, history) lives in the PM folder, not in `<manuscript_home>`.

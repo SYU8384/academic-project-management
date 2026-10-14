@@ -23,11 +23,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Public documentation, templates, examples, and agent prompts now use canonical Research Program/Project terminology. Existing `series`, `series_id`, `paper_id`, `papers`, `--series`, and `manage-paper-series.mjs` remain supported without silent conversion.
 
-## [1.3.0] - 2026-10-13
+### Added
+
+- README routing-map consistency check in `scripts/check-academic-pm.mjs`: the `## What Goes Where` and `## Optional Lanes` tables in the PM folder `README.md` are compared against the filesystem in both directions — route rows pointing at lanes that no longer exist and live top-level lanes missing from the tables are errors. Canonical optional lanes (`verification/`, `submissions/`, `admin/`, `ethics/`, `collaboration/`) may stay documented while absent; note-level churn stays with the folder index checks. Templates, AGENTS section, OpenClaw instruction, and REFERENCE updated; covered by T35 in `scripts/test/run-tests.mjs`.
+
+## [1.3.1] - 2026-08-27
+
+### Changed
+
+- Refreshed the GitHub README as a concise landing page: it now explains Research Project PM and optional Research Program PM in the opening section, adds a compact hierarchy visual and chapter-oriented use case, removes the academic-writer section, and corrects the self-test command.
+## [1.3.0] - 2026-08-26
 
 ### Added
 
-- `templates/AGENTS_ACADEMIC_PM_SECTION.md`: three behavioral blocks ported (selectively) from the project-management skill's AGENTS.md section, so coding/writing agents update the PM folder during the same session they code. (1) **Access resolution**: agents verify `~/.config/academic-pm/projects.json` for a matching `manuscript_home` with an accessible `pm_folder` before relying on the section; no config, no match, missing PM folder, or non-`authoritative` access means skip PM updates silently and never ask PM setup questions. (2) **Current-state before history**: `CURRENT_STATUS.md` and affected lane notes are updated before the `history/` bullet. (3) **Close-out guard**: before the final response after any manuscript-home change, agents run `scripts/check-academic-closeout.mjs` from the manuscript home (auto-matches the project) or state the no-impact reason. REFERENCE.md's "Manuscript Home And AGENTS.md Integration" section documents all three blocks. Existing projects pick up the new section via `scripts/sync-agents-section.mjs`.
+- Canonical **Research Project PM** and **Research Program PM** model. New program registries use `programs`, `program_id`, `work_id`, `work_type`, and ordered `projects`; project labels may be articles, chapters, studies, or other work units.
+- `scripts/manage-research-program.mjs` for program infrastructure, meetings, Inbox workflows, and explicit project adoption.
+- Safe `adopt-project --mode bridge` conversion. It updates registry membership only and never moves PM folders, repositories, or artifacts.
+- Program validation through `check-academic-pm.mjs --program`, plus fixtures for chapter-oriented programs, legacy series compatibility, and no-relocation bridge adoption.
+
+### Changed
+
+- Public documentation, templates, examples, and agent prompts now use canonical Research Program/Project terminology. Existing `series`, `series_id`, `paper_id`, `papers`, `--series`, and `manage-paper-series.mjs` remain supported without silent conversion.
 
 ## [1.2.0] - 2026-08-25
 
